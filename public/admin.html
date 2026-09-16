@@ -223,16 +223,19 @@
             }
         }
 
-        // ❌ Delete Agent Function
         async function deleteAgent(agentId) {
             if (!confirm(`Agent ID (${agentId}) ကို တကယ် ဖျက်မှာ သေချာပါသလား?`)) return;
 
-            const res = await fetch(`/api/admin/delete-agent/${agentId}`, { method: 'DELETE' });
+            const res = await fetch('/api/admin/delete-agent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agentId })
+            });
             const data = await res.json();
 
             if (data.success) {
                 alert("✅ " + data.message);
-                loadAgentsList(); // စာရင်းပြန် Refresh လုပ်မည်
+                loadAgentsList();
             } else {
                 alert("❌ " + data.message);
             }

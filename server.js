@@ -164,18 +164,17 @@ app.listen(PORT, () => {
     console.log(`-----------------------------------------`);
 });
 
-// ❌ Delete Agent API
-app.delete('/api/admin/delete-agent/:agentId', (req, res) => {
-    const { agentId } = req.params;
+// ❌ Delete Agent API (POST method ဖြင့် ပြောင်းထားပါသည်)
+app.post('/api/admin/delete-agent', (req, res) => {
+    const { agentId } = req.body;
     let db = readDB();
 
     if (!db.agents[agentId]) {
         return res.json({ success: false, message: "Agent ရှာမတွေ့ပါ။" });
     }
 
-    // Agent ကို DB ထဲမှ ဖျက်မည်
     delete db.agents[agentId];
     writeDB(db);
 
-    res.json({ success: true, message: `Agent ID (${agentId}) ကို အောင်မြင်စွာ ဖျက်ပြီးပါပြီ။` });
+    res.json({ success: true, message: `Agent ID (${agentId}) ကို ဖျက်ပြီးပါပြီ။` });
 });
