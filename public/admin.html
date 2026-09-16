@@ -205,16 +205,36 @@
                     data.agents.forEach(agent => {
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
-                        <td>${agent.id}</td>
-                        <td>${agent.username || 'Agent'}</td>
-                        <td><code>${agent.pin || '1234'}</code></td>
-                        <td><b style="color:#007bff;">${agent.device_balance} ခု</b></td>
-                    `;
+                    <td>${agent.id}</td>
+                    <td>${agent.username || 'Agent'}</td>
+                    <td><code>${agent.pin || '1234'}</code></td>
+                    <td><b style="color:#007bff;">${agent.device_balance} ခု</b></td>
+                    <td>
+                        <button onclick="deleteAgent('${agent.id}')" style="background:#dc3545; padding:5px 10px; font-size:12px; margin:0;">
+                            🗑️ Delete
+                        </button>
+                    </td>
+                `;
                         tbody.appendChild(tr);
                     });
                 }
             } catch (err) {
                 console.error("Agent List ယူမရပါ:", err);
+            }
+        }
+
+        // ❌ Delete Agent Function
+        async function deleteAgent(agentId) {
+            if (!confirm(`Agent ID (${agentId}) ကို တကယ် ဖျက်မှာ သေချာပါသလား?`)) return;
+
+            const res = await fetch(`/api/admin/delete-agent/${agentId}`, { method: 'DELETE' });
+            const data = await res.json();
+
+            if (data.success) {
+                alert("✅ " + data.message);
+                loadAgentsList(); // စာရင်းပြန် Refresh လုပ်မည်
+            } else {
+                alert("❌ " + data.message);
             }
         }
     </script>
