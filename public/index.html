@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR Maths - License Management System</title>
+    <title>AR Maths - Agent Dashboard</title>
     <style>
         * {
             box-sizing: border-box;
@@ -19,7 +19,7 @@
         }
 
         .container {
-            max-width: 700px;
+            max-width: 500px;
             margin: 0 auto;
             background: white;
             padding: 25px;
@@ -34,40 +34,6 @@
             margin-top: 0;
         }
 
-        /* Navigation Tabs */
-        .tabs {
-            display: flex;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #e0e0e0;
-        }
-
-        .tab-btn {
-            flex: 1;
-            padding: 12px;
-            text-align: center;
-            cursor: pointer;
-            font-weight: bold;
-            background: #e8f0fe;
-            color: #1a73e8;
-            border: none;
-            font-size: 16px;
-            border-radius: 8px 8px 0 0;
-        }
-
-        .tab-btn.active {
-            background: #1a73e8;
-            color: white;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        /* Form Styles */
         .form-group {
             margin-bottom: 15px;
         }
@@ -79,8 +45,7 @@
             color: #444;
         }
 
-        input,
-        select {
+        input {
             width: 100%;
             padding: 10px;
             border: 1px solid #ccc;
@@ -88,7 +53,6 @@
             font-size: 15px;
         }
 
-        /* Buttons */
         button {
             width: 100%;
             padding: 12px;
@@ -106,14 +70,6 @@
             background: #218838;
         }
 
-        button.admin-btn {
-            background: #007bff;
-        }
-
-        button.admin-btn:hover {
-            background: #0056b3;
-        }
-
         button.logout-btn {
             background: #dc3545;
             margin-top: 15px;
@@ -123,7 +79,6 @@
             background: #c82333;
         }
 
-        /* Results & Display */
         .result-box {
             margin-top: 20px;
             padding: 15px;
@@ -153,126 +108,47 @@
             border-radius: 4px;
             font-weight: bold;
         }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-
-        th,
-        td {
-            padding: 10px;
-            border: 1px solid #ddd;
-            text-align: left;
-        }
-
-        th {
-            background-color: #f8f9fa;
-        }
     </style>
 </head>
 
 <body>
 
     <div class="container">
-        <h2>🔑 AR Maths License Server</h2>
+        <h2>🔑 AR Maths Agent Portal</h2>
 
-        <!-- Tabs Header -->
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('agent-tab', event)">🔑 Agent Dashboard</button>
-            <button class="tab-btn" onclick="switchTab('admin-tab', event)">👑 Admin Panel</button>
+        <!-- Agent Login Form -->
+        <div id="login-form">
+            <h3>Agent Login</h3>
+            <div class="form-group">
+                <label>Agent ID:</label>
+                <input type="number" id="loginAgentId" placeholder="ဥပမာ - 1 သို့မဟုတ် 2">
+            </div>
+            <div class="form-group">
+                <label>Secret PIN Code:</label>
+                <input type="password" id="loginPin" placeholder="PIN Code ထည့်ပါ">
+            </div>
+            <button onclick="agentLogin()">Login ဝင်မည်</button>
         </div>
 
-        <!-- 1. AGENT SECTION -->
-        <div id="agent-tab" class="tab-content active">
-            <!-- Login Form -->
-            <div id="login-form">
-                <h3>Agent Login</h3>
-                <div class="form-group">
-                    <label>Agent ID:</label>
-                    <input type="number" id="loginAgentId" placeholder="ဥပမာ - 1 သို့မဟုတ် 2">
-                </div>
-                <div class="form-group">
-                    <label>Secret PIN Code:</label>
-                    <input type="password" id="loginPin" placeholder="PIN Code ထည့်ပါ (ဥပမာ - 1234)">
-                </div>
-                <button onclick="agentLogin()">Login ဝင်မည်</button>
+        <!-- Agent Dashboard -->
+        <div id="agent-dashboard" style="display: none;">
+            <h3>မင်္ဂလာပါ <span id="agentName" class="badge"></span></h3>
+            <p style="text-align: center; font-size: 16px;">ကျန်ရှိသော Device Quota: <b id="agentBalance"
+                    style="color: #007bff; font-size: 22px;">0</b> ခု</p>
+            <hr>
+            <div class="form-group">
+                <label>Customer Device ID:</label>
+                <input type="text" id="deviceId" placeholder="ဥပမာ - DEV-4C8093B2">
             </div>
-
-            <!-- Logged-in Dashboard -->
-            <div id="agent-dashboard" style="display: none;">
-                <h3>မင်္ဂလာပါ <span id="agentName" class="badge"></span></h3>
-                <p>လက်ရှိ ကျန်ရှိသော Device အရေအတွက်: <b id="agentBalance"
-                        style="color: #007bff; font-size: 20px;">0</b> ခု</p>
-                <hr>
-                <div class="form-group">
-                    <label>Customer Device ID:</label>
-                    <input type="text" id="deviceId" placeholder="ဥပမာ - DEV-4C8093B2">
-                </div>
-                <button onclick="generateKey()">Key အလိုအလျောက် ထုတ်မည် (1 Device Quota)</button>
-                <button class="logout-btn" onclick="agentLogout()">Logout ထွက်မည်</button>
-            </div>
+            <button onclick="generateKey()">Key အလိုအလျောက် ထုတ်မည် (1 Device Quota)</button>
+            <button class="logout-btn" onclick="agentLogout()">Logout ထွက်မည်</button>
         </div>
 
-        <!-- 2. ADMIN SECTION -->
-        <div id="admin-tab" class="tab-content">
-            <h3>Agent အကောင့်သစ်ဆောက် / Device အရေအတွက် ဖြည့်ရန်</h3>
-            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e0e0e0;">
-                <div class="form-group">
-                    <label>Agent ID:</label>
-                    <input type="number" id="adminAgentId" placeholder="ဥပမာ - 1 သို့မဟုတ် 2">
-                </div>
-                <div class="form-group">
-                    <label>Agent အမည် (Username):</label>
-                    <input type="text" id="adminAgentName" placeholder="ဥပမာ - agent_mgmg">
-                </div>
-                <div class="form-group">
-                    <label>Secret PIN Code သတ်မှတ်ရန်:</label>
-                    <input type="text" id="adminAgentPin" placeholder="ဥပမာ - 1234">
-                </div>
-                <div class="form-group">
-                    <label>Device အရေအတွက် (Number of Devices):</label>
-                    <input type="number" id="adminDevices" placeholder="ဥပမာ - 10">
-                </div>
-                <!-- ပြန်လည်ဖြည့်စွက်ထားသော Button -->
-                <button class="admin-btn" onclick="setAgentBalance()">Device အရေအတွက် ဖြည့်မည် /
-                    အကောင့်သိမ်းဆည်းမည်</button>
-            </div>
-
-            <h3 style="margin-top: 25px;">လက်ရှိ Agent စာရင်းများ</h3>
-            <button onclick="loadAgentsList()" style="background: #6c757d; padding: 8px; font-size: 14px;">🔄 Refresh
-                List</button>
-            <table id="agentsTable">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Username</th>
-                        <th>PIN Code</th>
-                        <th>ကျန်ရှိ Device</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-
-        <!-- Result Notification Box -->
         <div id="result" class="result-box"></div>
     </div>
 
     <script>
         let currentAgent = null;
-
-        function switchTab(tabId, evt) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-            document.getElementById(tabId).classList.add('active');
-            evt.target.classList.add('active');
-
-            if (tabId === 'admin-tab') {
-                loadAgentsList();
-            }
-        }
 
         async function agentLogin() {
             const agentId = document.getElementById('loginAgentId').value;
@@ -333,55 +209,6 @@
                 <div class="key-display">${data.licenseKey}</div>`;
             } else {
                 resultDiv.innerHTML = `<h4 style="color:#c62828; margin:0;">❌ ${data.message}</h4>`;
-            }
-        }
-
-        async function setAgentBalance() {
-            const agentId = document.getElementById('adminAgentId').value;
-            const username = document.getElementById('adminAgentName').value;
-            const pin = document.getElementById('adminAgentPin').value;
-            const devices = document.getElementById('adminDevices').value;
-
-            if (!agentId || !devices) return alert("Agent ID နှင့် Device အရေအတွက် ထည့်သွင်းပါ");
-
-            const res = await fetch('/api/admin/set-balance', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agentId, username, pin, devices })
-            });
-            const data = await res.json();
-
-            const resultDiv = document.getElementById('result');
-            resultDiv.style.display = 'block';
-            if (data.success) {
-                resultDiv.innerHTML = `<h4 style="color:#2e7d32; margin:0;">✅ ${data.message}</h4>`;
-                loadAgentsList();
-            } else {
-                resultDiv.innerHTML = `<h4 style="color:#c62828; margin:0;">❌ ${data.message}</h4>`;
-            }
-        }
-
-        async function loadAgentsList() {
-            try {
-                const res = await fetch('/api/admin/agents');
-                const data = await res.json();
-
-                if (data.success) {
-                    const tbody = document.querySelector('#agentsTable tbody');
-                    tbody.innerHTML = '';
-                    data.agents.forEach(agent => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                        <td>${agent.id}</td>
-                        <td>${agent.username || 'Agent'}</td>
-                        <td><code>${agent.pin || '1234'}</code></td>
-                        <td><b style="color:#007bff;">${agent.device_balance} ခု</b></td>
-                    `;
-                        tbody.appendChild(tr);
-                    });
-                }
-            } catch (err) {
-                console.error("Agent List ယူမရပါ:", err);
             }
         }
     </script>

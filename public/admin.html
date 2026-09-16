@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="my">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Maths - Admin Panel</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 650px;
+            margin: 0 auto;
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        h2,
+        h3 {
+            text-align: center;
+            color: #1a73e8;
+            margin-top: 0;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #444;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 15px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f8f9fa;
+        }
+
+        .result-box {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 8px;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h2>👑 Admin Control Panel</h2>
+
+        <!-- Admin Authentication -->
+        <div id="admin-login">
+            <h3>Admin Passcode စစ်ဆေးခြင်း</h3>
+            <div class="form-group">
+                <label>Admin Password:</label>
+                <input type="password" id="adminPass" placeholder="Admin Password ထည့်ပါ">
+            </div>
+            <button onclick="checkAdminPass()">Admin Panel ဖွင့်မည်</button>
+        </div>
+
+        <!-- Main Admin Panel Content -->
+        <div id="admin-content" style="display: none;">
+            <h3>Agent အကောင့်သစ်ဆောက် / Device အရေအတွက် ဖြည့်ရန်</h3>
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e0e0e0;">
+                <div class="form-group">
+                    <label>Agent ID:</label>
+                    <input type="number" id="adminAgentId" placeholder="ဥပမာ - 1 သို့မဟုတ် 2">
+                </div>
+                <div class="form-group">
+                    <label>Agent အမည် (Username):</label>
+                    <input type="text" id="adminAgentName" placeholder="ဥပမာ - agent_mgmg">
+                </div>
+                <div class="form-group">
+                    <label>Secret PIN Code သတ်မှတ်ရန်:</label>
+                    <input type="text" id="adminAgentPin" placeholder="ဥပမာ - 1234">
+                </div>
+                <div class="form-group">
+                    <label>Device အရေအတွက် (Number of Devices):</label>
+                    <input type="number" id="adminDevices" placeholder="ဥပမာ - 10">
+                </div>
+                <button onclick="setAgentBalance()">Device အရေအတွက် ဖြည့်မည် / အကောင့်သိမ်းဆည်းမည်</button>
+            </div>
+
+            <h3 style="margin-top: 25px;">လက်ရှိ Agent စာရင်းများ</h3>
+            <button onclick="loadAgentsList()" style="background: #6c757d; padding: 8px; font-size: 14px;">🔄 Refresh
+                List</button>
+            <table id="agentsTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Username</th>
+                        <th>PIN Code</th>
+                        <th>ကျန်ရှိ Device</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div id="result" class="result-box"></div>
+    </div>
+
+    <script>
+        // 🔑 Admin Password (ဒီနေရာတွင် မိမိကြိုက်နှစ်သက်ရာ Password သို့ ပြောင်းလဲနိုင်ပါသည်)
+        const ADMIN_SECRET = "admin123";
+
+        function checkAdminPass() {
+            const pass = document.getElementById('adminPass').value;
+            if (pass === ADMIN_SECRET) {
+                document.getElementById('admin-login').style.display = 'none';
+                document.getElementById('admin-content').style.display = 'block';
+                loadAgentsList();
+            } else {
+                alert("❌ Admin Password မှားယွင်းနေပါသည်။");
+            }
+        }
+
+        async function setAgentBalance() {
+            const agentId = document.getElementById('adminAgentId').value;
+            const username = document.getElementById('adminAgentName').value;
+            const pin = document.getElementById('adminAgentPin').value;
+            const devices = document.getElementById('adminDevices').value;
+
+            if (!agentId || !devices) return alert("Agent ID နှင့် Device အရေအတွက် ထည့်သွင်းပါ");
+
+            const res = await fetch('/api/admin/set-balance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ agentId, username, pin, devices })
+            });
+            const data = await res.json();
+
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            if (data.success) {
+                resultDiv.innerHTML = `<h4 style="color:#2e7d32; margin:0;">✅ ${data.message}</h4>`;
+                loadAgentsList();
+            } else {
+                resultDiv.innerHTML = `<h4 style="color:#c62828; margin:0;">❌ ${data.message}</h4>`;
+            }
+        }
+
+        async function loadAgentsList() {
+            try {
+                const res = await fetch('/api/admin/agents');
+                const data = await res.json();
+
+                if (data.success) {
+                    const tbody = document.querySelector('#agentsTable tbody');
+                    tbody.innerHTML = '';
+                    data.agents.forEach(agent => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                        <td>${agent.id}</td>
+                        <td>${agent.username || 'Agent'}</td>
+                        <td><code>${agent.pin || '1234'}</code></td>
+                        <td><b style="color:#007bff;">${agent.device_balance} ခု</b></td>
+                    `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            } catch (err) {
+                console.error("Agent List ယူမရပါ:", err);
+            }
+        }
+    </script>
+</body>
+
+</html>
