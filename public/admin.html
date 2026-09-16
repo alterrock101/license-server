@@ -226,18 +226,24 @@
         async function deleteAgent(agentId) {
             if (!confirm(`Agent ID (${agentId}) ကို တကယ် ဖျက်မှာ သေချာပါသလား?`)) return;
 
-            const res = await fetch('/api/admin/delete-agent', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agentId })
-            });
-            const data = await res.json();
+            try {
+                const res = await fetch('/api/admin/delete-agent', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ agentId: String(agentId) })
+                });
 
-            if (data.success) {
-                alert("✅ " + data.message);
-                loadAgentsList();
-            } else {
-                alert("❌ " + data.message);
+                const data = await res.json();
+
+                if (data.success) {
+                    alert("✅ " + data.message);
+                    loadAgentsList();
+                } else {
+                    alert("❌ " + data.message);
+                }
+            } catch (err) {
+                alert("❌ Request ပို့ရာတွင် Error တက်သွားပါသည်။");
+                console.error(err);
             }
         }
     </script>
