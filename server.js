@@ -164,7 +164,7 @@ app.listen(PORT, () => {
     console.log(`-----------------------------------------`);
 });
 
-// ❌ Delete Agent API (Corrected DB Function Names)
+// ❌ Delete Agent API (Array-based Storage Fix)
 app.post('/api/admin/delete-agent', (req, res) => {
     try {
         const { agentId } = req.body;
@@ -173,22 +173,25 @@ app.post('/api/admin/delete-agent', (req, res) => {
             return res.status(400).json({ success: false, message: "Agent ID မပါဝင်ပါ။" });
         }
 
-        // 💡 readDB() အစား သင့် server.js ထဲက getDB() ကို သုံးထားပါတယ်
-        let db = typeof getDB === 'function' ? getDB() : readData();
+        // သင့် server.js ထဲက loadDatabase() ကို ခေါ်သုံးမည်
+        let db = loadDatabase();
 
-        if (!db.agents || !db.agents[agentId]) {
+        if (!db.agents || !Array.isArray(db.agents)) {
+            return res.status(500).json({ success: false, message: "Database တည်ဆောက်ပုံ မှားယွင်းနေပါသည်။" });
+        }
+
+        // Agent ID ကို Array ထဲတွင် ရှာမည် (ID ကို String/Number ညီအောင် စစ်ပါမည်)
+        const agentIndex = db.agents.findIndex(a => String(a.id) === String(agentId));
+
+        if (agentIndex === -1) {
             return res.status(404).json({ success: false, message: "Agent ID ရှာမတွေ့ပါ။" });
         }
 
-        // Agent ကို DB ထဲမှ ဖျက်မည်
-        delete db.agents[agentId];
+        // Agent ကို Array ထဲမှ ဖျက်မည်
+        db.agents.splice(agentIndex, 1);
 
-        // 💡 writeDB() အစား သင့် server.js ထဲက saveDB() ကို သုံးထားပါတယ်
-        if (typeof saveDB === 'function') {
-            saveDB(db);
-        } else {
-            writeData(db);
-        }
+        // database.json ထဲသို့ ပြန်သိမ်းမည်
+        fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 
         return res.json({
             success: true,
