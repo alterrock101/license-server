@@ -2,10 +2,18 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const cors = require('cors'); // 👈 ၁။ cors ကို ခေါ်ယူပါ
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DB_FILE = path.join(__dirname, 'database.json');
+
+// 👈 ၂။ Mobile App / APK က လာတဲ့ request များကို ခွင့်ပြုရန် ထည့်ပေးပါ
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
