@@ -131,217 +131,235 @@
         </div>
 
         <!-- Agent Dashboard -->
-        <div id="agent-dashboard" style="display: none;">
-            <h3>မင်္ဂလာပါ <span id="agentName" class="badge"></span></h3>
+        <div id="agent-dashboard" style="display:none;">
+            <h3>Welcome, <span id="agentName"></span></h3>
+            <p>6 Months Quota: <b id="agentQuota6m">0</b> | 1 Year Quota: <b id="agentQuota1y">0</b></p>
 
-            <!-- 💡 6 Months နှင့် 1 Year Quota နှစ်မျိုးလုံးကို သီးသန့် ခွဲပြထားသည် -->
-            <p style="text-align: center; font-size: 15px;">
-                <b>6 Months Quota:</b> <b id="agentQuota6m" style="color: #007bff; font-size: 20px;">0</b> ခု |
-                <b>1 Year Quota:</b> <b id="agentQuota1y" style="color: #28a745; font-size: 20px;">0</b> ခု
-            </p>
             <hr>
 
-            <div class="form-group">
-                <label>Customer Device ID:</label>
-                <input type="text" id="deviceId" placeholder="ဥပမာ - DEV-4C8093B2">
-            </div>
+            <label>Customer Device ID:</label><br>
+            <input type="text" id="deviceId" placeholder="Enter Device ID"
+                style="width:100%; padding:8px; margin:8px 0;"><br>
 
-            <div class="form-group">
-                <label>Plan သက်တမ်း ရွေးချယ်ပါ:</label>
-                <select id="agentPlanType">
-                    <option value="6months">6 Months Plan (၆ လ သက်တမ်း)</option>
-                    <option value="1year">1 Year Plan (၁ နှစ် သက်တမ်း)</option>
-                </select>
-            </div>
+            <label>Plan Type:</label><br>
+            <select id="agentPlanType" style="width:100%; padding:8px; margin:8px 0;">
+                <option value="6months">6 Months Plan (၆ လ)</option>
+                <option value="1year">1 Year Plan (၁ နှစ်)</option>
+            </select><br><br>
 
-            <button onclick="generateKey()">Key အလိုအလျောက် ထုတ်မည်</button>
-            <button class="logout-btn" onclick="agentLogout()">Logout ထွက်မည်</button>
+            <!-- 💡 type="button" နှင့် onclick="generateKey(event)" ထည့်ထားပါသည် -->
+            <button type="button" onclick="generateKey(event)"
+                style="padding:10px 20px; background:#007bff; color:white; border:none; border-radius:5px; cursor:pointer;">
+                Key အလိုအလျောက် ထုတ်မည်
+            </button>
+
+            <button type="button" onclick="agentLogout()"
+                style="padding:10px 15px; background:#6c757d; color:white; border:none; border-radius:5px; cursor:pointer; margin-left:10px;">
+                Logout
+            </button>
+
+            <!-- 💡 Key ထွက်လာလျှင် ပြသပေးမည့် နေရာ -->
+            <div id="result" style="margin-top:20px; display:none;"></div>
         </div>
 
-        <div id="result" class="result-box"></div>
-    </div>
+        <script>
+            window.BASE_URL = "https://armaths-license-server.onrender.com";
+            const BASE_URL = "https://armaths-license-server.onrender.com";
 
-    <script>
-        // 💡 Render Server URL
-        window.BASE_URL = "https://armaths-license-server.onrender.com";
-        const BASE_URL = "https://armaths-license-server.onrender.com";
+            let currentAgent = null;
 
-        let currentAgent = null;
+            async function agentLogin() {
+                const agentIdInput = document.getElementById('loginAgentId');
+                const pinInput = document.getElementById('loginPin');
 
-        async function agentLogin() {
-            const agentIdInput = document.getElementById('loginAgentId');
-            const pinInput = document.getElementById('loginPin');
+                const agentId = agentIdInput ? agentIdInput.value.trim() : '';
+                const pin = pinInput ? pinInput.value.trim() : '';
 
-            const agentId = agentIdInput ? agentIdInput.value.trim() : '';
-            const pin = pinInput ? pinInput.value.trim() : '';
+                if (!agentId || !pin) return alert("❌ Agent ID နှင့် PIN Code ဖြည့်ပါ");
 
-            if (!agentId || !pin) return alert("❌ Agent ID နှင့် PIN Code ဖြည့်ပါ");
+                window.currentAgentId = agentId;
+                window.currentPin = pin;
 
-            window.currentAgentId = agentId;
-            window.currentPin = pin;
-            localStorage.setItem('agentId', agentId);
-            localStorage.setItem('pin', pin);
+                const host = (typeof BASE_URL !== 'undefined' ? BASE_URL : (window.BASE_URL || "https://armaths-license-server.onrender.com"));
 
-            const host = (typeof BASE_URL !== 'undefined' ? BASE_URL : (window.BASE_URL || "https://armaths-license-server.onrender.com"));
-
-            try {
-                // 💡 BASE_URL ကို မှန်ကန်စွာ ထည့်သွင်းထားပါသည်
-                const res = await fetch(`${host}/api/agent/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ agentId, pin })
-                });
-
-                const data = await res.json();
-
-                if (res.ok && data.success) {
-                    currentAgent = {
-                        agentId,
-                        pin,
-                        name: data.agent.username,
-                        quota_6m: data.agent.quota_6m || 0,
-                        quota_1y: data.agent.quota_1y || 0
-                    };
-
-                    if (document.getElementById('agentName')) {
-                        document.getElementById('agentName').innerText = data.agent.username;
-                    }
-
-                    if (document.getElementById('agentQuota6m')) {
-                        document.getElementById('agentQuota6m').innerText = data.agent.quota_6m || 0;
-                    }
-                    if (document.getElementById('agentQuota1y')) {
-                        document.getElementById('agentQuota1y').innerText = data.agent.quota_1y || 0;
-                    }
-
-                    document.getElementById('login-form').style.display = 'none';
-                    document.getElementById('agent-dashboard').style.display = 'block';
-                    if (document.getElementById('result')) document.getElementById('result').style.display = 'none';
-                } else {
-                    alert("❌ " + (data.message || "Login ဝင်၍ မရပါ"));
-                }
-            } catch (err) {
-                console.error("Login Error:", err);
-                alert("❌ Server သို့ ချိတ်ဆက်၍ မရပါ။ (Internet connection သို့မဟုတ် Server URL ကို စစ်ဆေးပါ)");
-            }
-        }
-
-        function agentLogout() {
-            currentAgent = null;
-            window.currentAgentId = null;
-            window.currentPin = null;
-            localStorage.removeItem('agentId');
-            localStorage.removeItem('pin');
-
-            document.getElementById('login-form').style.display = 'block';
-            document.getElementById('agent-dashboard').style.display = 'none';
-            if (document.getElementById('result')) document.getElementById('result').style.display = 'none';
-        }
-
-        async function generateKey() {
-            const btn = document.querySelector("#agent-dashboard button[onclick='generateKey()']");
-            const deviceIdInput = document.getElementById('deviceId');
-
-            const agentIdInput = document.getElementById('loginAgentId');
-            const pinInput = document.getElementById('loginPin');
-
-            const agentId = (agentIdInput ? agentIdInput.value.trim() : '') || window.currentAgentId || localStorage.getItem('agentId');
-            const pin = (pinInput ? pinInput.value.trim() : '') || window.currentPin || localStorage.getItem('pin');
-
-            const deviceId = deviceIdInput ? deviceIdInput.value.trim() : '';
-            const planType = document.getElementById('agentPlanType') ? document.getElementById('agentPlanType').value : '6months';
-
-            if (!agentId || !pin) {
-                alert("❌ Agent ID သို့မဟုတ် PIN မရှိပါ။ ကျေးဇူးပြု၍ ပြန်လည် Login ဝင်ပါ။");
-                return;
-            }
-
-            if (!deviceId) {
-                alert("❌ Customer Device ID ကို ရိုက်ထည့်ပါ");
-                return;
-            }
-
-            if (btn) {
-                btn.disabled = true;
-                btn.innerText = "⏳ Key ထုတ်ပေးနေပါသည်...";
-                btn.style.opacity = "0.6";
-                btn.style.cursor = "not-allowed";
-            }
-
-            const host = (typeof BASE_URL !== 'undefined' ? BASE_URL : (window.BASE_URL || "https://armaths-license-server.onrender.com"));
-
-            try {
-                const res = await fetch(`${host}/api/agent/generate-key`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ agentId, pin, deviceId, planType })
-                });
-
-                const textResponse = await res.text();
-                let data;
                 try {
-                    data = JSON.parse(textResponse);
-                } catch (e) {
-                    throw new Error("Server Response မှားယွင်းနေပါသည်။ (" + textResponse.substring(0, 100) + ")");
+                    const res = await fetch(`${host}/api/agent/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ agentId, pin })
+                    });
+
+                    const data = await res.json();
+
+                    if (res.ok && data.success) {
+                        currentAgent = {
+                            agentId,
+                            pin,
+                            name: data.agent.username,
+                            quota_6m: data.agent.quota_6m || 0,
+                            quota_1y: data.agent.quota_1y || 0
+                        };
+
+                        updateQuotaUI(data.agent.quota_6m, data.agent.quota_1y);
+
+                        if (document.getElementById('agentName')) {
+                            document.getElementById('agentName').innerText = data.agent.username;
+                        }
+
+                        document.getElementById('login-form').style.display = 'none';
+                        document.getElementById('agent-dashboard').style.display = 'block';
+                    } else {
+                        alert("❌ " + (data.message || "Login ဝင်၍ မရပါ"));
+                    }
+                } catch (err) {
+                    console.error("Login Error:", err);
+                    alert("❌ Server သို့ ချိတ်ဆက်၍ မရပါ။");
+                }
+            }
+
+            function updateQuotaUI(q6m, q1y) {
+                if (document.getElementById('agentQuota6m')) {
+                    document.getElementById('agentQuota6m').innerText = q6m || 0;
+                }
+                if (document.getElementById('agentQuota1y')) {
+                    document.getElementById('agentQuota1y').innerText = q1y || 0;
+                }
+                if (currentAgent) {
+                    currentAgent.quota_6m = q6m;
+                    currentAgent.quota_1y = q1y;
+                }
+            }
+
+            function agentLogout() {
+                currentAgent = null;
+                window.currentAgentId = null;
+                window.currentPin = null;
+
+                document.getElementById('login-form').style.display = 'block';
+                document.getElementById('agent-dashboard').style.display = 'none';
+                if (document.getElementById('result')) document.getElementById('result').style.display = 'none';
+            }
+
+            async function generateKey(e) {
+                // Form Submit ဖြစ်ပြီး Refresh မဖြစ်သွားစေရန် တားဆီးခြင်း
+                if (e && e.preventDefault) e.preventDefault();
+
+                const deviceIdInput = document.getElementById('deviceId');
+                const deviceId = deviceIdInput ? deviceIdInput.value.trim() : '';
+
+                // 💡 Validation: Device ID မရှိပါက ရပ်တန့်မည် (Double Click နှိပ်မိ၍ Quota မကုန်အောင် ကာကွယ်ခြင်း)
+                if (!deviceId) {
+                    alert("❌ Customer Device ID ကို ရိုက်ထည့်ပါ");
+                    return false;
                 }
 
-                const resultDiv = document.getElementById('result');
-                if (resultDiv) resultDiv.style.display = 'block';
+                const agentIdInput = document.getElementById('loginAgentId');
+                const pinInput = document.getElementById('loginPin');
 
-                if (res.ok && data.success) {
-                    const planText = (planType === '1year' || planType === '1y') ? '1 Year Plan (၁ နှစ်)' : '6 Months Plan (၆ လ)';
+                const agentId = (agentIdInput ? agentIdInput.value.trim() : '') || window.currentAgentId;
+                const pin = (pinInput ? pinInput.value.trim() : '') || window.currentPin;
 
-                    if (resultDiv) {
-                        resultDiv.innerHTML = `
-                        <div style="background:#e8f5e9; padding:15px; border-radius:8px; border:1px solid #4caf50; text-align:left;">
+                const planType = document.getElementById('agentPlanType') ? document.getElementById('agentPlanType').value : '6months';
+
+                if (!agentId || !pin) {
+                    alert("❌ Agent ID သို့မဟုတ် PIN မရှိပါ။ ကျေးဇူးပြု၍ ပြန်လည် Login ဝင်ပါ။");
+                    return false;
+                }
+
+                const btn = e ? e.target : document.querySelector("#agent-dashboard button");
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerText = "⏳ Key ထုတ်ပေးနေပါသည်...";
+                }
+
+                const host = (typeof BASE_URL !== 'undefined' ? BASE_URL : (window.BASE_URL || "https://armaths-license-server.onrender.com"));
+
+                try {
+                    const res = await fetch(`${host}/api/agent/generate-key`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ agentId, pin, deviceId, planType })
+                    });
+
+                    const data = await res.json();
+                    const resultDiv = document.getElementById('result');
+
+                    if (res.ok && data.success) {
+                        const planText = (planType === '1year' || planType === '1y') ? '1 Year Plan (၁ နှစ်)' : '6 Months Plan (၆ လ)';
+
+                        // 💡 ၁။ Device ID ထည့်ထားသည့် Input Box ကို ချက်ချင်း Clear ပစ်ပါသည်
+                        if (deviceIdInput) deviceIdInput.value = '';
+
+                        // 💡 ၂။ Key သီးသန့် ကူးယူနိုင်သော Button ပါဝင်သည့် ရလဒ် Card ကို ပြသပေးထားပါသည် (ပျောက်မသွားပါ)
+                        if (resultDiv) {
+                            resultDiv.style.display = 'block';
+                            resultDiv.innerHTML = `
+                        <div style="background:#e8f5e9; padding:15px; border-radius:8px; border:1px solid #4caf50; text-align:left; margin-top:15px;">
                             <h4 style="color:#2e7d32; margin:0 0 10px 0;">✅ Key အောင်မြင်စွာ ထုတ်ပေးပြီးပါပြီ</h4>
                             <p style="margin:4px 0;"><b>Plan သက်တမ်း:</b> ${planText}</p>
-                            <p style="margin:4px 0;"><b>Customer Device ID:</b> <code>${data.deviceId}</code></p>
-                            <p style="margin:6px 0;"><b>License Key:</b></p>
+                            <p style="margin:4px 0;"><b>Customer Device ID:</b> <code style="background:#fff; padding:2px 6px; border-radius:4px; border:1px solid #ccc;">${data.deviceId}</code></p>
+                            <p style="margin:8px 0 4px 0;"><b>License Key:</b></p>
                             <div style="display:flex; align-items:center; gap:10px; margin-top:5px;">
-                                <code style="font-size:16px; color:#d32f2f; font-weight:bold; background:#fff; padding:6px 10px; border-radius:4px; border:1px solid #ccc;">${data.licenseKey}</code>
-                                <button onclick="copyToClipboard('${data.licenseKey}')" style="background:#28a745; color:white; border:none; padding:7px 12px; border-radius:5px; cursor:pointer; font-size:13px;">
+                                <code id="generatedKeyText" style="font-size:16px; color:#d32f2f; font-weight:bold; background:#fff; padding:8px 12px; border-radius:4px; border:1px solid #ccc; flex-grow:1; word-break:break-all;">${data.licenseKey}</code>
+                                <button type="button" onclick="copyKeyOnly('${data.licenseKey}')" style="background:#28a745; color:white; border:none; padding:8px 14px; border-radius:5px; cursor:pointer; font-size:13px; flex-shrink:0; font-weight:bold;">
                                     📋 Copy Key
                                 </button>
                             </div>
                         </div>
                     `;
-                    }
+                        }
 
-                    if (deviceIdInput) deviceIdInput.value = '';
+                        // 💡 ၃။ Quota ကို ပြန်လည် လျှော့ပြပါမည်
+                        if (currentAgent) {
+                            if (planType === '1year' || planType === '1y') {
+                                const newQ = Math.max(0, (currentAgent.quota_1y || 1) - 1);
+                                updateQuotaUI(currentAgent.quota_6m, newQ);
+                            } else {
+                                const newQ = Math.max(0, (currentAgent.quota_6m || 1) - 1);
+                                updateQuotaUI(newQ, currentAgent.quota_1y);
+                            }
+                        }
 
-                    // Balance ပြန်လည် update လုပ်ရန်
-                    if (typeof agentLogin === 'function') agentLogin();
-                } else {
-                    if (resultDiv) {
-                        resultDiv.innerHTML = `<h4 style="color:#c62828; margin:0;">❌ ${data.message || 'Key ထုတ်မရပါ'}</h4>`;
                     } else {
-                        alert(`❌ ${data.message || 'Key ထုတ်မရပါ'}`);
+                        if (resultDiv) {
+                            resultDiv.style.display = 'block';
+                            resultDiv.innerHTML = `<h4 style="color:#c62828; margin-top:10px;">❌ ${data.message || 'Key ထုတ်မရပါ'}</h4>`;
+                        } else {
+                            alert(`❌ ${data.message || 'Key ထုတ်မရပါ'}`);
+                        }
                     }
-                }
-            } catch (err) {
-                alert("❌ Server သို့ Request ပို့ရာတွင် Error တက်သွားပါသည်။\n" + err.message);
-                console.error("Generate Key Error:", err);
-            } finally {
-                setTimeout(() => {
+                } catch (err) {
+                    alert("❌ Server သို့ Request ပို့ရာတွင် Error တက်သွားပါသည်။\n" + err.message);
+                } finally {
                     if (btn) {
                         btn.disabled = false;
                         btn.innerText = "Key အလိုအလျောက် ထုတ်မည်";
-                        btn.style.opacity = "1";
-                        btn.style.cursor = "pointer";
                     }
-                }, 1000);
-            }
-        }
+                }
 
-        function copyToClipboard(key) {
-            navigator.clipboard.writeText(key).then(() => {
-                alert("📋 Activation Key ကို Copy ကူးပြီးပါပြီ။");
-            }).catch(err => {
-                console.error("Copy Error:", err);
-            });
-        }
-    </script>
+                return false;
+            }
+
+            // 💡 License Key သီးသန့်ကိုသာ Clipboard သို့ Copy ကူးပေးသည့် သီးသန့် Function
+            function copyKeyOnly(key) {
+                if (!key) return;
+                navigator.clipboard.writeText(key).then(() => {
+                    alert("📋 Activation Key ကို သီးသန့် Copy ကူးပြီးပါပြီ။");
+                }).catch(err => {
+                    console.error("Copy Error:", err);
+                    // Fallback for older browsers
+                    const textElem = document.getElementById('generatedKeyText');
+                    if (textElem) {
+                        const range = document.createRange();
+                        range.selectNode(textElem);
+                        window.getSelection().removeAllRanges();
+                        window.getSelection().addRange(range);
+                        document.execCommand('copy');
+                        alert("📋 Activation Key ကို Copy ကူးပြီးပါပြီ။");
+                    }
+                });
+            }
+        </script>
 </body>
 
 </html>
