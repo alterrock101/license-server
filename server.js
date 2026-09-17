@@ -1,12 +1,18 @@
 const express = require('express');
-const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
-const cors = require('cors'); // 👈 ၁။ cors ကို ခေါ်ယူပါ
+const cors = require('cors');
+const { Pool } = require('pg');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DB_FILE = path.join(__dirname, 'database.json');
+
+// 💡 ဒီနေရာမှာ အစ်ကို့ရဲ့ Supabase Direct Connection String ကို ထည့်ပေးရမှာပါ
+const DATABASE_URL = process.env.DATABASE_URL || "postgresql://postgres:Ar@1651973kotoe@db.xxxx.supabase.co:5432/postgres";
+
+const pool = new Pool({
+    connectionString: DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+});
 
 // 👈 ၂။ Mobile App / APK က လာတဲ့ request များကို ခွင့်ပြုရန် ထည့်ပေးပါ
 app.use(cors({
