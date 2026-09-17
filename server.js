@@ -118,38 +118,47 @@ app.post('/api/agent/generate-key', (req, res) => {
     });
 });
 
-// 3. Admin: Device Balance သတ်မှတ်ခြင်း / Agent သစ်ဖွင့်ပေးခြင်း
+// 💳 Set Agent Quota (6 Months / 1 Year)
 app.post('/api/admin/set-balance', (req, res) => {
-    const { agentId, username, pin, devices } = req.body;
+    try {
+        const { agentId, username, pin, planType, devices } = req.body;
+        let db = loadDatabase();
 
-    if (!agentId || !devices) {
-        return res.status(400).json({ success: false, message: "Agent ID နှင့် Devices အရေအတွက် ဖြည့်ရန် လိုအပ်ပါသည်။" });
+        let agent = db.agents.find(a => String(a.id) === String(agentId));
+
+        if (!agent) {
+            // Agent သစ် ဆောက်မည်
+            agent = {
+                id: Number(agentId),
+                username: username || `agent_${agentId}`,
+                pin: pin || "1234",
+                quota_6m: 0,
+                quota_1y: 0
+            };
+            db.agents.push(agent);
+        } else {
+            if (username) agent.username = username;
+            if (pin) agent.pin = pin;
+        }
+
+        // Quota ပေါင်းထည့်မည်
+        if (planType === '6months') {
+            agent.quota_6m = (agent.quota_6m || 0) + Number(devices);
+        } else if (planType === '1year') {
+            agent.quota_1y = (agent.quota_1y || 0) + Number(devices);
+        }
+
+        fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+
+        return res.json({
+            success: true,
+            message: `Agent ID (${agentId}) သို့ ${planType === '6months' ? '6 လ' : '1 နှစ်'} သက်တမ်း Quota (${devices}) ခု ဖြည့်သွင်းပြီးပါပြီ။`
+        });
+
+    } catch (error) {
+        console.error("Set Balance Error:", error);
+        return res.status(500).json({ success: false, message: "Server Error: " + error.message });
     }
-
-    const db = loadDatabase();
-    let agent = db.agents.find(a => a.id == agentId);
-
-    if (agent) {
-        agent.device_balance = parseInt(devices);
-        if (username) agent.username = username;
-        if (pin) agent.pin = pin;
-    } else {
-        agent = {
-            id: parseInt(agentId),
-            username: username || `agent_${agentId}`,
-            pin: pin || "1234",
-            device_balance: parseInt(devices)
-        };
-        db.agents.push(agent);
-    }
-
-    saveDatabase(db);
-
-    return res.json({
-        success: true,
-        message: `Agent ${agentId} အတွက် Device Quota ${devices} ခု သတ်မှတ်ပြီးပါပြီ။`,
-        agent: agent
-    });
 });
 
 // 4. Admin: Agent များ စာရင်း ကြည့်ရန်

@@ -45,12 +45,14 @@
             color: #444;
         }
 
-        input {
+        input,
+        select {
             width: 100%;
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 6px;
             font-size: 15px;
+            background-color: #fff;
         }
 
         button {
@@ -114,7 +116,7 @@
 
         <!-- Main Admin Panel Content -->
         <div id="admin-content" style="display: none;">
-            <h3>Agent အကောင့်သစ်ဆောက် / Device အရေအတွက် ဖြည့်ရန်</h3>
+            <h3>Agent အကောင့်သစ်ဆောက် / Quota ဖြည့်ရန်</h3>
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e0e0e0;">
                 <div class="form-group">
                     <label>Agent ID:</label>
@@ -129,10 +131,17 @@
                     <input type="text" id="adminAgentPin" placeholder="ဥပမာ - 1234">
                 </div>
                 <div class="form-group">
-                    <label>Device အရေအတွက် (Number of Devices):</label>
+                    <label>Plan သက်တမ်း ရွေးချယ်ရန်:</label>
+                    <select id="adminPlanType">
+                        <option value="6months">6 Months (၆ လ သက်တမ်း)</option>
+                        <option value="1year">1 Year (၁ နှစ် သက်တမ်း)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Device အရေအတွက် (Quota Count):</label>
                     <input type="number" id="adminDevices" placeholder="ဥပမာ - 10">
                 </div>
-                <button onclick="setAgentBalance()">Device အရေအတွက် ဖြည့်မည် / အကောင့်သိမ်းဆည်းမည်</button>
+                <button onclick="setAgentBalance()">Quota ဖြည့်မည် / အကောင့်သိမ်းဆည်းမည်</button>
             </div>
 
             <h3 style="margin-top: 25px;">လက်ရှိ Agent စာရင်းများ</h3>
@@ -143,8 +152,10 @@
                     <tr>
                         <th>ID</th>
                         <th>Username</th>
-                        <th>PIN Code</th>
-                        <th>ကျန်ရှိ Device</th>
+                        <th>PIN</th>
+                        <th>6 Months Quota</th>
+                        <th>1 Year Quota</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -155,7 +166,6 @@
     </div>
 
     <script>
-        // 🔑 Admin Password (ဒီနေရာတွင် မိမိကြိုက်နှစ်သက်ရာ Password သို့ ပြောင်းလဲနိုင်ပါသည်)
         const ADMIN_SECRET = "admin123";
 
         function checkAdminPass() {
@@ -173,6 +183,7 @@
             const agentId = document.getElementById('adminAgentId').value;
             const username = document.getElementById('adminAgentName').value;
             const pin = document.getElementById('adminAgentPin').value;
+            const planType = document.getElementById('adminPlanType').value;
             const devices = document.getElementById('adminDevices').value;
 
             if (!agentId || !devices) return alert("Agent ID နှင့် Device အရေအတွက် ထည့်သွင်းပါ");
@@ -180,7 +191,7 @@
             const res = await fetch('/api/admin/set-balance', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agentId, username, pin, devices })
+                body: JSON.stringify({ agentId, username, pin, planType, devices: parseInt(devices) })
             });
             const data = await res.json();
 
@@ -205,16 +216,17 @@
                     data.agents.forEach(agent => {
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
-                    <td>${agent.id}</td>
-                    <td>${agent.username || 'Agent'}</td>
-                    <td><code>${agent.pin || '1234'}</code></td>
-                    <td><b style="color:#007bff;">${agent.device_balance} ခု</b></td>
-                    <td>
-                        <button onclick="deleteAgent('${agent.id}')" style="background:#dc3545; padding:5px 10px; font-size:12px; margin:0;">
-                            🗑️ Delete
-                        </button>
-                    </td>
-                `;
+                            <td>${agent.id}</td>
+                            <td>${agent.username || 'Agent'}</td>
+                            <td><code>${agent.pin || '1234'}</code></td>
+                            <td><b style="color:#28a745;">${agent.quota_6m || 0} ခု</b></td>
+                            <td><b style="color:#007bff;">${agent.quota_1y || 0} ခု</b></td>
+                            <td>
+                                <button onclick="deleteAgent('${agent.id}')" style="background:#dc3545; padding:5px 10px; font-size:12px; margin:0;">
+                                    🗑️ Delete
+                                </button>
+                            </td>
+                        `;
                         tbody.appendChild(tr);
                     });
                 }
