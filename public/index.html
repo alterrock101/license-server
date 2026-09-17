@@ -147,11 +147,14 @@
                 <option value="1year">1 Year Plan (၁ နှစ်)</option>
             </select><br><br>
 
-            <!-- 💡 type="button" နှင့် onclick="generateKey(event)" ထည့်ထားပါသည် -->
+            <!-- Button တွင် type="button" ပါရန် လိုအပ်သည် (Form submit မဖြစ်စေရန်) -->
             <button type="button" onclick="generateKey(event)"
-                style="padding:10px 20px; background:#007bff; color:white; border:none; border-radius:5px; cursor:pointer;">
+                style="width:100%; padding:12px; background:#28a745; color:white; border:none; border-radius:6px; font-weight:bold; font-size:16px; cursor:pointer;">
                 Key အလိုအလျောက် ထုတ်မည်
             </button>
+
+            <!-- 💡 Result Box ကို ရှင်းရှင်းလင်းလင်း သီးသန့် ပြသပေးမည့်နေရာ -->
+            <div id="result" style="margin-top:20px;"></div>
 
             <button type="button" onclick="agentLogout()"
                 style="padding:10px 15px; background:#6c757d; color:white; border:none; border-radius:5px; cursor:pointer; margin-left:10px;">
@@ -241,13 +244,15 @@
             }
 
             async function generateKey(e) {
-                // Form Submit ဖြစ်ပြီး Refresh မဖြစ်သွားစေရန် တားဆီးခြင်း
-                if (e && e.preventDefault) e.preventDefault();
+                // 💡 Form Reload မဖြစ်အောင် ရာနှုန်းပြည့် တားဆီးခြင်း
+                if (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
 
                 const deviceIdInput = document.getElementById('deviceId');
                 const deviceId = deviceIdInput ? deviceIdInput.value.trim() : '';
 
-                // 💡 Validation: Device ID မရှိပါက ရပ်တန့်မည် (Double Click နှိပ်မိ၍ Quota မကုန်အောင် ကာကွယ်ခြင်း)
                 if (!deviceId) {
                     alert("❌ Customer Device ID ကို ရိုက်ထည့်ပါ");
                     return false;
@@ -258,13 +263,7 @@
 
                 const agentId = (agentIdInput ? agentIdInput.value.trim() : '') || window.currentAgentId;
                 const pin = (pinInput ? pinInput.value.trim() : '') || window.currentPin;
-
                 const planType = document.getElementById('agentPlanType') ? document.getElementById('agentPlanType').value : '6months';
-
-                if (!agentId || !pin) {
-                    alert("❌ Agent ID သို့မဟုတ် PIN မရှိပါ။ ကျေးဇူးပြု၍ ပြန်လည် Login ဝင်ပါ။");
-                    return false;
-                }
 
                 const btn = e ? e.target : document.querySelector("#agent-dashboard button");
                 if (btn) {
@@ -287,29 +286,28 @@
                     if (res.ok && data.success) {
                         const planText = (planType === '1year' || planType === '1y') ? '1 Year Plan (၁ နှစ်)' : '6 Months Plan (၆ လ)';
 
-                        // 💡 ၁။ Device ID ထည့်ထားသည့် Input Box ကို ချက်ချင်း Clear ပစ်ပါသည်
+                        // Input Box ကို ရှင်းထုတ်မည်
                         if (deviceIdInput) deviceIdInput.value = '';
 
-                        // 💡 ၂။ Key သီးသန့် ကူးယူနိုင်သော Button ပါဝင်သည့် ရလဒ် Card ကို ပြသပေးထားပါသည် (ပျောက်မသွားပါ)
+                        // 💡 Key ပျောက်မသွားစေဘဲ Screen ပေါ်တွင် အမြဲကျန်နေမည့် UI Block
                         if (resultDiv) {
-                            resultDiv.style.display = 'block';
                             resultDiv.innerHTML = `
-                        <div style="background:#e8f5e9; padding:15px; border-radius:8px; border:1px solid #4caf50; text-align:left; margin-top:15px;">
-                            <h4 style="color:#2e7d32; margin:0 0 10px 0;">✅ Key အောင်မြင်စွာ ထုတ်ပေးပြီးပါပြီ</h4>
-                            <p style="margin:4px 0;"><b>Plan သက်တမ်း:</b> ${planText}</p>
-                            <p style="margin:4px 0;"><b>Customer Device ID:</b> <code style="background:#fff; padding:2px 6px; border-radius:4px; border:1px solid #ccc;">${data.deviceId}</code></p>
-                            <p style="margin:8px 0 4px 0;"><b>License Key:</b></p>
-                            <div style="display:flex; align-items:center; gap:10px; margin-top:5px;">
-                                <code id="generatedKeyText" style="font-size:16px; color:#d32f2f; font-weight:bold; background:#fff; padding:8px 12px; border-radius:4px; border:1px solid #ccc; flex-grow:1; word-break:break-all;">${data.licenseKey}</code>
-                                <button type="button" onclick="copyKeyOnly('${data.licenseKey}')" style="background:#28a745; color:white; border:none; padding:8px 14px; border-radius:5px; cursor:pointer; font-size:13px; flex-shrink:0; font-weight:bold;">
-                                    📋 Copy Key
-                                </button>
-                            </div>
+                    <div style="background:#e8f5e9; padding:15px; border-radius:8px; border:2px solid #2e7d32; text-align:left; margin-top:15px;">
+                        <h4 style="color:#2e7d32; margin:0 0 10px 0; font-size:16px;">✅ Key အောင်မြင်စွာ ထုတ်ပေးပြီးပါပြီ</h4>
+                        <p style="margin:4px 0; color:#333;"><b>Plan သက်တမ်း:</b> ${planText}</p>
+                        <p style="margin:4px 0; color:#333;"><b>Customer Device ID:</b> <code style="background:#fff; padding:2px 6px; border-radius:4px; border:1px solid #ccc;">${data.deviceId || deviceId}</code></p>
+                        <p style="margin:10px 0 4px 0; color:#333;"><b>License Key:</b></p>
+                        <div style="display:flex; align-items:center; gap:8px; margin-top:5px;">
+                            <input type="text" readonly value="${data.licenseKey}" id="keyOutput" style="font-size:15px; font-weight:bold; color:#d32f2f; background:#fff; padding:8px; border-radius:4px; border:1px solid #ccc; flex-grow:1;" />
+                            <button type="button" onclick="copyGeneratedKey()" style="background:#007bff; color:white; border:none; padding:9px 12px; border-radius:4px; cursor:pointer; font-weight:bold; white-space:nowrap;">
+                                📋 Copy
+                            </button>
                         </div>
-                    `;
+                    </div>
+                `;
                         }
 
-                        // 💡 ၃။ Quota ကို ပြန်လည် လျှော့ပြပါမည်
+                        // Quota UI အလိုအလျောက် လျှော့ပေးမည်
                         if (currentAgent) {
                             if (planType === '1year' || planType === '1y') {
                                 const newQ = Math.max(0, (currentAgent.quota_1y || 1) - 1);
@@ -322,14 +320,11 @@
 
                     } else {
                         if (resultDiv) {
-                            resultDiv.style.display = 'block';
-                            resultDiv.innerHTML = `<h4 style="color:#c62828; margin-top:10px;">❌ ${data.message || 'Key ထုတ်မရပါ'}</h4>`;
-                        } else {
-                            alert(`❌ ${data.message || 'Key ထုတ်မရပါ'}`);
+                            resultDiv.innerHTML = `<div style="color:#d32f2f; background:#ffebee; padding:10px; border-radius:6px; margin-top:10px; border:1px solid #ef5350;">❌ ${data.message || 'Key ထုတ်မရပါ'}</div>`;
                         }
                     }
                 } catch (err) {
-                    alert("❌ Server သို့ Request ပို့ရာတွင် Error တက်သွားပါသည်။\n" + err.message);
+                    alert("❌ Server Error: " + err.message);
                 } finally {
                     if (btn) {
                         btn.disabled = false;
@@ -340,24 +335,14 @@
                 return false;
             }
 
-            // 💡 License Key သီးသန့်ကိုသာ Clipboard သို့ Copy ကူးပေးသည့် သီးသန့် Function
-            function copyKeyOnly(key) {
-                if (!key) return;
-                navigator.clipboard.writeText(key).then(() => {
-                    alert("📋 Activation Key ကို သီးသန့် Copy ကူးပြီးပါပြီ။");
-                }).catch(err => {
-                    console.error("Copy Error:", err);
-                    // Fallback for older browsers
-                    const textElem = document.getElementById('generatedKeyText');
-                    if (textElem) {
-                        const range = document.createRange();
-                        range.selectNode(textElem);
-                        window.getSelection().removeAllRanges();
-                        window.getSelection().addRange(range);
-                        document.execCommand('copy');
-                        alert("📋 Activation Key ကို Copy ကူးပြီးပါပြီ။");
-                    }
-                });
+            // Copy လုပ်ရန် Helper Function
+            function copyGeneratedKey() {
+                const copyText = document.getElementById("keyOutput");
+                if (!copyText) return;
+                copyText.select();
+                copyText.setSelectionRange(0, 99999);
+                navigator.clipboard.writeText(copyText.value);
+                alert("📋 License Key ကို Copy ကူးပြီးပါပြီ - " + copyText.value);
             }
         </script>
 </body>
