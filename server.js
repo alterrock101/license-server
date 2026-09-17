@@ -191,45 +191,26 @@ app.listen(PORT, () => {
     console.log(`-----------------------------------------`);
 });
 
-// ❌ Delete Agent API (Array-based Storage Fix)
+// 🗑️ Delete Agent API (File Sync ပါဝင်ပြီးသား)
 app.post('/api/admin/delete-agent', (req, res) => {
     try {
         const { agentId } = req.body;
-
-        if (!agentId) {
-            return res.status(400).json({ success: false, message: "Agent ID မပါဝင်ပါ။" });
-        }
-
-        // သင့် server.js ထဲက loadDatabase() ကို ခေါ်သုံးမည်
         let db = loadDatabase();
 
-        if (!db.agents || !Array.isArray(db.agents)) {
-            return res.status(500).json({ success: false, message: "Database တည်ဆောက်ပုံ မှားယွင်းနေပါသည်။" });
-        }
+        const initialLength = db.agents.length;
+        // String မတူညီသည်များကိုသာ ချန်လှပ်၍ Filter လုပ်မည်
+        db.agents = db.agents.filter(a => String(a.id) !== String(agentId));
 
-        // Agent ID ကို Array ထဲတွင် ရှာမည် (ID ကို String/Number ညီအောင် စစ်ပါမည်)
-        const agentIndex = db.agents.findIndex(a => String(a.id) === String(agentId));
-
-        if (agentIndex === -1) {
+        if (db.agents.length === initialLength) {
             return res.status(404).json({ success: false, message: "Agent ID ရှာမတွေ့ပါ။" });
         }
 
-        // Agent ကို Array ထဲမှ ဖျက်မည်
-        db.agents.splice(agentIndex, 1);
-
-        // database.json ထဲသို့ ပြန်သိမ်းမည်
+        // Database (JSON File) ထဲသို့ ချက်ချင်း အပြီးတိုင် ရေးသွင်းမည်
         fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 
-        return res.json({
-            success: true,
-            message: `Agent ID (${agentId}) ကို အောင်မြင်စွာ ဖျက်ပြီးပါပြီ။`
-        });
-
+        return res.json({ success: true, message: `Agent ID (${agentId}) ကို အပြီးတိုင် ဖျက်ပြီးပါပြီ။` });
     } catch (error) {
         console.error("Delete Agent Error:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Server Error: " + error.message
-        });
+        return res.status(500).json({ success: false, message: "Server Error: " + error.message });
     }
 });

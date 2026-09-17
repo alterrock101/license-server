@@ -215,44 +215,62 @@
         }
 
         async function generateKey() {
-            if (!currentAgent) return alert("ကျေးဇူးပြု၍ Login အရင်ဝင်ပါ");
+            const btn = document.querySelector("#agent-dashboard button[onclick='generateKey()']");
 
+            const agentId = document.getElementById('loginAgentId').value;
+            const pin = document.getElementById('loginPin').value;
             const deviceId = document.getElementById('deviceId').value;
-            const planType = document.getElementById('agentPlanType').value; // 💡 Select Box မှ ရွေးထားသည့် Plan ယူမည်
+            const planType = document.getElementById('agentPlanType').value;
 
-            if (!deviceId) return alert("Device ID ရိုက်ထည့်ပါ");
+            if (!deviceId) {
+                alert("❌ Customer Device ID ကို ရိုက်ထည့်ပါ");
+                return;
+            }
 
-            const res = await fetch('/api/agent/generate-key', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    agentId: currentAgent.agentId,
-                    pin: currentAgent.pin,
-                    deviceId,
-                    planType
-                })
-            });
-            const data = await res.json();
+            // 💡 Double Click / Double Tap ကာကွယ်ရန် Button ကို ခေတ္တ ပိတ်မည်
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = "⏳ Key ထုတ်ပေးနေပါသည်...";
+                btn.style.opacity = "0.6";
+                btn.style.cursor = "not-allowed";
+            }
 
-            const resultDiv = document.getElementById('result');
-            resultDiv.style.display = 'block';
-            if (data.success) {
-                // 💡 ကျန်ရှိသည့် Quota အသစ်ကို Dashboard ပေါ်တွင် ပြန် Update လုပ်မည်
-                if (planType === '6months') {
-                    currentAgent.quota_6m = data.remainingQuota;
-                    if (document.getElementById('agentQuota6m')) document.getElementById('agentQuota6m').innerText = data.remainingQuota;
+            try {
+                const res = await fetch(`${BASE_URL}/api/agent/generate-key`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ agentId, pin, deviceId, planType })
+                });
+
+                const data = await res.json();
+                const resultDiv = document.getElementById('result');
+                resultDiv.style.display = 'block';
+
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                <div style="background:#e8f5e9; padding:15px; border-radius:8px; border:1px solid #4caf50;">
+                    <h4 style="color:#2e7d32; margin:0 0 8px 0;">✅ ${data.message}</h4>
+                    <p style="margin:5px 0;"><b>License Key:</b> <code style="font-size:16px; color:#d32f2f;">${data.licenseKey}</code></p>
+                </div>
+            `;
+                    // Quota စာရင်း ပြန်လည် Update လုပ်ခြင်း
+                    if (typeof agentLogin === 'function') agentLogin();
                 } else {
-                    currentAgent.quota_1y = data.remainingQuota;
-                    if (document.getElementById('agentQuota1y')) document.getElementById('agentQuota1y').innerText = data.remainingQuota;
+                    resultDiv.innerHTML = `<h4 style="color:#c62828; margin:0;">❌ ${data.message}</h4>`;
                 }
-
-                resultDiv.innerHTML = `<h4 style="color:#2e7d32; margin:0 0 10px 0;">✅ ${data.message}</h4>
-            <p><b>Plan သက်တမ်း:</b> ${planType === '6months' ? '6 Months' : '1 Year'}</p>
-            <p><b>Device ID:</b> ${data.deviceId}</p>
-            <p><b>Generated Key:</b></p>
-            <div class="key-display">${data.licenseKey}</div>`;
-            } else {
-                resultDiv.innerHTML = `<h4 style="color:#c62828; margin:0;">❌ ${data.message}</h4>`;
+            } catch (err) {
+                alert("❌ Server သို့ Request ပို့ရာတွင် Error တက်သွားပါသည်။");
+                console.error(err);
+            } finally {
+                // 💡 ၃ စက္ကန့် ကြာပြီးမှ Button ကို အလိုအလျောက် ပြန်ဖွင့်ပေးမည်
+                setTimeout(() => {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerText = "Key အလိုအလျောက် ထုတ်မည်";
+                        btn.style.opacity = "1";
+                        btn.style.cursor = "pointer";
+                    }
+                }, 3000);
             }
         }
     </script>

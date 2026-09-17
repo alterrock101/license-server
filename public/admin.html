@@ -166,7 +166,10 @@
     </div>
 
     <script>
-        const ADMIN_SECRET = "admin123";
+        // 💡 Render ပေါ်ရှိ သင့် Server Live Domain URL ကို ဒီနေရာတွင် ထည့်ပါ (အဆုံးတွင် / မပါရပါ)
+        const BASE_URL = "https://armaths-license-server.onrender.com"; // Example: "https://your-server-domain.com"
+
+        const ADMIN_SECRET = "admin123"; // Admin Password
 
         function checkAdminPass() {
             const pass = document.getElementById('adminPass').value;
@@ -188,26 +191,33 @@
 
             if (!agentId || !devices) return alert("Agent ID နှင့် Device အရေအတွက် ထည့်သွင်းပါ");
 
-            const res = await fetch('/api/admin/set-balance', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ agentId, username, pin, planType, devices: parseInt(devices) })
-            });
-            const data = await res.json();
+            try {
+                // 💡 BASE_URL ထည့်သွင်းထားပါသည်
+                const res = await fetch(`${BASE_URL}/api/admin/set-balance`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ agentId, username, pin, planType, devices: parseInt(devices) })
+                });
+                const data = await res.json();
 
-            const resultDiv = document.getElementById('result');
-            resultDiv.style.display = 'block';
-            if (data.success) {
-                resultDiv.innerHTML = `<h4 style="color:#2e7d32; margin:0;">✅ ${data.message}</h4>`;
-                loadAgentsList();
-            } else {
-                resultDiv.innerHTML = `<h4 style="color:#c62828; margin:0;">❌ ${data.message}</h4>`;
+                const resultDiv = document.getElementById('result');
+                resultDiv.style.display = 'block';
+                if (data.success) {
+                    resultDiv.innerHTML = `<h4 style="color:#2e7d32; margin:0;">✅ ${data.message}</h4>`;
+                    loadAgentsList();
+                } else {
+                    resultDiv.innerHTML = `<h4 style="color:#c62828; margin:0;">❌ ${data.message}</h4>`;
+                }
+            } catch (err) {
+                alert("❌ Server နှင့် ချိတ်ဆက်၍ မရပါ။");
+                console.error(err);
             }
         }
 
         async function loadAgentsList() {
             try {
-                const res = await fetch('/api/admin/agents');
+                // 💡 BASE_URL ထည့်သွင်းထားပါသည်
+                const res = await fetch(`${BASE_URL}/api/admin/agents`);
                 const data = await res.json();
 
                 if (data.success) {
@@ -216,17 +226,17 @@
                     data.agents.forEach(agent => {
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
-                            <td>${agent.id}</td>
-                            <td>${agent.username || 'Agent'}</td>
-                            <td><code>${agent.pin || '1234'}</code></td>
-                            <td><b style="color:#28a745;">${agent.quota_6m || 0} ခု</b></td>
-                            <td><b style="color:#007bff;">${agent.quota_1y || 0} ခု</b></td>
-                            <td>
-                                <button onclick="deleteAgent('${agent.id}')" style="background:#dc3545; padding:5px 10px; font-size:12px; margin:0;">
-                                    🗑️ Delete
-                                </button>
-                            </td>
-                        `;
+                        <td>${agent.id}</td>
+                        <td>${agent.username || 'Agent'}</td>
+                        <td><code>${agent.pin || '1234'}</code></td>
+                        <td><b style="color:#28a745;">${agent.quota_6m || 0} ခု</b></td>
+                        <td><b style="color:#007bff;">${agent.quota_1y || 0} ခု</b></td>
+                        <td>
+                            <button onclick="deleteAgent('${agent.id}')" style="background:#dc3545; padding:5px 10px; font-size:12px; margin:0;">
+                                🗑️ Delete
+                            </button>
+                        </td>
+                    `;
                         tbody.appendChild(tr);
                     });
                 }
@@ -239,7 +249,8 @@
             if (!confirm(`Agent ID (${agentId}) ကို တကယ် ဖျက်မှာ သေချာပါသလား?`)) return;
 
             try {
-                const res = await fetch('/api/admin/delete-agent', {
+                // 💡 BASE_URL ထည့်သွင်းထားပါသည်
+                const res = await fetch(`${BASE_URL}/api/admin/delete-agent`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ agentId: String(agentId) })
