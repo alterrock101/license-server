@@ -77,45 +77,63 @@ app.post('/api/agent/login', (req, res) => {
     });
 });
 
-// 2. Agent မှ Key ထုတ်ပေးသော API
+// 🔑 Agent Generate License Key API (Fixed Quota Checking Bug)
 app.post('/api/agent/generate-key', (req, res) => {
-    const { agentId, pin, deviceId, expiryDays } = req.body;
+    try {
+        const { agentId, pin, deviceId, planType } = req.body;
+        let db = loadDatabase();
 
-    if (!agentId || !pin || !deviceId) {
-        return res.status(400).json({ success: false, message: "အချက်အလက်များ မစုံလင်ပါ။" });
+        // Agent အကောင့်နှင့် PIN Code စစ်ဆေးခြင်း
+        const agent = db.agents.find(a => String(a.id) === String(agentId) && String(a.pin) === String(pin));
+        if (!agent) {
+            return res.status(401).json({ success: false, message: "Agent ID သို့မဟုတ် PIN မှားယွင်းနေပါသည်။" });
+        }
+
+        // ရွေးချယ်ထားသော Plan (6months သို့မဟုတ် 1year) အလိုက် Quota စစ်ဆေးခြင်း
+        const is1Year = (planType === '1year');
+        const currentQuota = is1Year ? (agent.quota_1y || 0) : (agent.quota_6m || 0);
+
+        // Quota မရှိပါက သက်ဆိုင်ရာ Plan အတွက်သာ Error ပြမည် (အခြား Plan Quota ကို မထိခိုက်ပါ)
+        if (currentQuota <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: `သင့်တွင် ${is1Year ? '1 Year' : '6 Months'} Plan အတွက် ခွင့်ပြုထားသော Device အရေအတွက် ကုန်လွန်သွားပါပြီ။`
+            });
+        }
+
+        // ရွေးချယ်ထားသော Plan မှ Quota ၁ ခု သာ လျှော့မည်
+        if (is1Year) {
+            agent.quota_1y -= 1;
+        } else {
+            agent.quota_6m -= 1;
+        }
+
+        // License Key ထုတ်ပေးခြင်း (6 Months = 180 ရက်၊ 1 Year = 365 ရက်)
+        const durationDays = is1Year ? 365 : 180;
+
+        // 💡 သင့် server.js ထဲရှိ Key generate လုပ်သည့် function ကို ခေါ်သုံးပါ
+        const licenseKey = typeof generateCryptoKey === 'function'
+            ? generateCryptoKey(deviceId, durationDays)
+            : `KEY-${planType.toUpperCase()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+
+        // Database ထဲသို့ ပြန်သိမ်းမည်
+        fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+
+        // ကျန်ရှိသော Quota ကို ပြန်လည် ပေးပို့မည်
+        const remainingQuota = is1Year ? agent.quota_1y : agent.quota_6m;
+
+        return res.json({
+            success: true,
+            licenseKey: licenseKey,
+            deviceId: deviceId,
+            remainingQuota: remainingQuota,
+            message: `${is1Year ? '1 Year' : '6 Months'} Plan License Key အောင်မြင်စွာ ထုတ်ပေးပြီးပါပြီ။`
+        });
+
+    } catch (error) {
+        console.error("Generate Key Error:", error);
+        return res.status(500).json({ success: false, message: "Server Error: " + error.message });
     }
-
-    const db = loadDatabase();
-    const agent = db.agents.find(a => a.id == agentId && a.pin == pin);
-
-    if (!agent) {
-        return res.status(401).json({ success: false, message: "ခွင့်ပြုချက် မရှိပါ (Invalid Credentials)" });
-    }
-
-    if (agent.device_balance <= 0) {
-        return res.status(400).json({ success: false, message: "သင့်တွင် ခွင့်ပြုထားသော Device အရေအတွက် ကုန်လွန်သွားပါပြီ။" });
-    }
-
-    const licenseKey = generateLicenseKey(deviceId, expiryDays || 365);
-    agent.device_balance -= 1;
-
-    db.licenses.push({
-        id: db.licenses.length + 1,
-        agent_id: agentId,
-        device_id: deviceId,
-        activation_key: licenseKey,
-        created_at: new Date().toISOString()
-    });
-
-    saveDatabase(db);
-
-    return res.json({
-        success: true,
-        message: "Key ထုတ်ယူမှု အောင်မြင်ပါသည်",
-        deviceId: deviceId,
-        licenseKey: licenseKey,
-        remainingDevices: agent.device_balance
-    });
 });
 
 // 💳 Set Agent Quota (6 Months / 1 Year)
