@@ -2,14 +2,14 @@
   "agents": [
     {
       "id": 1,
-      "username": "Shwe Moe",
-      "pin": "1234",
-      "device_balance": 9
+      "username": "Alter Rock",
+      "pin": "0110",
+      "device_balance": 50
     },
     {
       "id": 2,
-      "username": "Saya Hla",
-      "pin": "5678",
+      "username": "Shwe Moe",
+      "pin": "1234",
       "device_balance": 10
     }
   ],
