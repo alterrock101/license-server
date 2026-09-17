@@ -1,15 +1,13 @@
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
-const fs = require('fs'); // 👈 ဒီလိုင်းလေး ထပ်ဖြည့်ပေးလိုက်ပါ
+const crypto = require('crypto');
 const { Pool } = require('pg');
-
-
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// 💡 ဒီနေရာမှာ အစ်ကို့ရဲ့ Supabase Direct Connection String ကို ထည့်ပေးရမှာပါ
+// 💡 Supabase Connection String
 const DATABASE_URL = process.env.DATABASE_URL || "postgresql://postgres:Ar@1651973kotoe@db.xxxx.supabase.co:5432/postgres";
 
 const pool = new Pool({
@@ -17,7 +15,7 @@ const pool = new Pool({
     ssl: { rejectUnauthorized: false }
 });
 
-// 👈 ၂။ Mobile App / APK က လာတဲ့ request များကို ခွင့်ပြုရန် ထည့်ပေးပါ
+// CORS Config
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -27,29 +25,7 @@ app.use(cors({
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Database ဖတ်ရန်
-function loadDatabase() {
-    if (!fs.existsSync(DB_FILE)) {
-        const defaultDb = {
-            agents: [
-                { id: 1, username: "agent_aung", pin: "1234", device_balance: 10 },
-                { id: 2, username: "agent_koko", pin: "5678", device_balance: 5 }
-            ],
-            licenses: []
-        };
-        fs.writeFileSync(DB_FILE, JSON.stringify(defaultDb, null, 2));
-        return defaultDb;
-    }
-    const data = fs.readFileSync(DB_FILE, 'utf8');
-    return JSON.parse(data);
-}
-
-// Database သိမ်းဆည်းရန်
-function saveDatabase(db) {
-    fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
-}
-
-// Key Generator Function
+// Key Generator Function (AES-256-CBC)
 function generateLicenseKey(deviceId, expiryDays = 365) {
     const secret = "MY_SUPER_SECRET_KEY_2026";
     const expireTimestamp = Date.now() + (expiryDays * 24 * 60 * 60 * 1000);
@@ -67,50 +43,61 @@ function generateLicenseKey(deviceId, expiryDays = 365) {
     return encrypted.toUpperCase();
 }
 
-// ---------------- API ROUTES ----------------
+// ---------------- API ROUTES (Supabase PostgreSQL Integrated) ----------------
 
 // 1. Agent Login API
-app.post('/api/agent/login', (req, res) => {
-    const { agentId, pin } = req.body;
-    if (!agentId || !pin) {
-        return res.status(400).json({ success: false, message: "Agent ID နှင့် PIN Code ဖြည့်ပါ" });
-    }
-
-    const db = loadDatabase();
-    const agent = db.agents.find(a => a.id == agentId && a.pin == pin);
-
-    if (!agent) {
-        return res.status(401).json({ success: false, message: "Agent ID သို့မဟုတ် PIN Code မှားယွင်းနေပါသည်။" });
-    }
-
-    return res.json({
-        success: true,
-        message: "Login အောင်မြင်ပါသည်",
-        agent: {
-            id: agent.id,
-            username: agent.username,
-            device_balance: agent.device_balance
+app.post('/api/agent/login', async (req, res) => {
+    try {
+        const { agentId, pin } = req.body;
+        if (!agentId || !pin) {
+            return res.status(400).json({ success: false, message: "Agent ID နှင့် PIN Code ဖြည့်ပါ" });
         }
-    });
+
+        const result = await pool.query(
+            'SELECT * FROM agents WHERE id = $1 AND pin = $2',
+            [agentId, pin]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(401).json({ success: false, message: "Agent ID သို့မဟုတ် PIN Code မှားယွင်းနေပါသည်။" });
+        }
+
+        const agent = result.rows[0];
+        return res.json({
+            success: true,
+            message: "Login အောင်မြင်ပါသည်",
+            agent: {
+                id: agent.id,
+                username: agent.username,
+                quota_6m: agent.quota_6m || 0,
+                quota_1y: agent.quota_1y || 0
+            }
+        });
+    } catch (error) {
+        console.error("Login Error:", error);
+        return res.status(500).json({ success: false, message: "Server Error: " + error.message });
+    }
 });
 
-// 🔑 Agent Generate License Key API (Fixed Quota Checking Bug)
-app.post('/api/agent/generate-key', (req, res) => {
+// 2. Agent Generate License Key API
+app.post('/api/agent/generate-key', async (req, res) => {
     try {
         const { agentId, pin, deviceId, planType } = req.body;
-        let db = loadDatabase();
 
-        // Agent အကောင့်နှင့် PIN Code စစ်ဆေးခြင်း
-        const agent = db.agents.find(a => String(a.id) === String(agentId) && String(a.pin) === String(pin));
-        if (!agent) {
+        // Agent အကောင့်နှင့် PIN Code စစ်ဆေးခြင်း
+        const agentRes = await pool.query(
+            'SELECT * FROM agents WHERE id = $1 AND pin = $2',
+            [agentId, pin]
+        );
+
+        if (agentRes.rows.length === 0) {
             return res.status(401).json({ success: false, message: "Agent ID သို့မဟုတ် PIN မှားယွင်းနေပါသည်။" });
         }
 
-        // ရွေးချယ်ထားသော Plan (6months သို့မဟုတ် 1year) အလိုက် Quota စစ်ဆေးခြင်း
+        const agent = agentRes.rows[0];
         const is1Year = (planType === '1year');
         const currentQuota = is1Year ? (agent.quota_1y || 0) : (agent.quota_6m || 0);
 
-        // Quota မရှိပါက သက်ဆိုင်ရာ Plan အတွက်သာ Error ပြမည် (အခြား Plan Quota ကို မထိခိုက်ပါ)
         if (currentQuota <= 0) {
             return res.status(400).json({
                 success: false,
@@ -118,26 +105,24 @@ app.post('/api/agent/generate-key', (req, res) => {
             });
         }
 
-        // ရွေးချယ်ထားသော Plan မှ Quota ၁ ခု သာ လျှော့မည်
+        // Quota ၁ ခု လျှော့မည်
         if (is1Year) {
-            agent.quota_1y -= 1;
+            await pool.query('UPDATE agents SET quota_1y = quota_1y - 1 WHERE id = $1', [agentId]);
         } else {
-            agent.quota_6m -= 1;
+            await pool.query('UPDATE agents SET quota_6m = quota_6m - 1 WHERE id = $1', [agentId]);
         }
 
-        // License Key ထုတ်ပေးခြင်း (6 Months = 180 ရက်၊ 1 Year = 365 ရက်)
+        // License Key ထုတ်ပေးခြင်း
         const durationDays = is1Year ? 365 : 180;
+        const licenseKey = generateLicenseKey(deviceId, durationDays);
 
-        // 💡 သင့် server.js ထဲရှိ Key generate လုပ်သည့် function ကို ခေါ်သုံးပါ
-        const licenseKey = typeof generateCryptoKey === 'function'
-            ? generateCryptoKey(deviceId, durationDays)
-            : `KEY-${planType.toUpperCase()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+        // Supabase keys table ထဲသို့ သိမ်းမည်
+        await pool.query(
+            'INSERT INTO keys (agent_id, device_id, plan_type, license_key, created_at) VALUES ($1, $2, $3, $4, NOW())',
+            [agentId, deviceId, planType, licenseKey]
+        );
 
-        // Database ထဲသို့ ပြန်သိမ်းမည်
-        fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
-
-        // ကျန်ရှိသော Quota ကို ပြန်လည် ပေးပို့မည်
-        const remainingQuota = is1Year ? agent.quota_1y : agent.quota_6m;
+        const remainingQuota = currentQuota - 1;
 
         return res.json({
             success: true,
@@ -153,37 +138,32 @@ app.post('/api/agent/generate-key', (req, res) => {
     }
 });
 
-// 💳 Set Agent Quota (6 Months / 1 Year)
-app.post('/api/admin/set-balance', (req, res) => {
+// 3. Admin: Set Agent Quota
+app.post('/api/admin/set-balance', async (req, res) => {
     try {
         const { agentId, username, pin, planType, devices } = req.body;
-        let db = loadDatabase();
 
-        let agent = db.agents.find(a => String(a.id) === String(agentId));
+        const agentRes = await pool.query('SELECT * FROM agents WHERE id = $1', [agentId]);
 
-        if (!agent) {
+        if (agentRes.rows.length === 0) {
             // Agent သစ် ဆောက်မည်
-            agent = {
-                id: Number(agentId),
-                username: username || `agent_${agentId}`,
-                pin: pin || "1234",
-                quota_6m: 0,
-                quota_1y: 0
-            };
-            db.agents.push(agent);
+            const q6m = planType === '6months' ? Number(devices) : 0;
+            const q1y = planType === '1year' ? Number(devices) : 0;
+            await pool.query(
+                'INSERT INTO agents (id, username, pin, quota_6m, quota_1y) VALUES ($1, $2, $3, $4, $5)',
+                [agentId, username || `agent_${agentId}`, pin || "1234", q6m, q1y]
+            );
         } else {
-            if (username) agent.username = username;
-            if (pin) agent.pin = pin;
-        }
+            // အကောင့်ရှိပြီးသားဆိုလျှင် Update လုပ်မည်
+            if (username) await pool.query('UPDATE agents SET username = $1 WHERE id = $2', [username, agentId]);
+            if (pin) await pool.query('UPDATE agents SET pin = $1 WHERE id = $2', [pin, agentId]);
 
-        // Quota ပေါင်းထည့်မည်
-        if (planType === '6months') {
-            agent.quota_6m = (agent.quota_6m || 0) + Number(devices);
-        } else if (planType === '1year') {
-            agent.quota_1y = (agent.quota_1y || 0) + Number(devices);
+            if (planType === '6months') {
+                await pool.query('UPDATE agents SET quota_6m = COALESCE(quota_6m, 0) + $1 WHERE id = $2', [Number(devices), agentId]);
+            } else if (planType === '1year') {
+                await pool.query('UPDATE agents SET quota_1y = COALESCE(quota_1y, 0) + $1 WHERE id = $2', [Number(devices), agentId]);
+            }
         }
-
-        fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 
         return res.json({
             success: true,
@@ -197,37 +177,35 @@ app.post('/api/admin/set-balance', (req, res) => {
 });
 
 // 4. Admin: Agent များ စာရင်း ကြည့်ရန်
-app.get('/api/admin/agents', (req, res) => {
-    const db = loadDatabase();
-    res.json({ success: true, agents: db.agents });
+app.get('/api/admin/agents', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM agents ORDER BY id ASC');
+        res.json({ success: true, agents: result.rows });
+    } catch (error) {
+        console.error("Fetch Agents Error:", error);
+        res.status(500).json({ success: false, message: "Server Error: " + error.message });
+    }
 });
 
-app.listen(PORT, () => {
-    console.log(`-----------------------------------------`);
-    console.log(`Server running on port ${PORT}`);
-    console.log(`-----------------------------------------`);
-});
-
-// 🗑️ Delete Agent API (File Sync ပါဝင်ပြီးသား)
-app.post('/api/admin/delete-agent', (req, res) => {
+// 5. Admin: Delete Agent API
+app.post('/api/admin/delete-agent', async (req, res) => {
     try {
         const { agentId } = req.body;
-        let db = loadDatabase();
+        const result = await pool.query('DELETE FROM agents WHERE id = $1 RETURNING *', [agentId]);
 
-        const initialLength = db.agents.length;
-        // String မတူညီသည်များကိုသာ ချန်လှပ်၍ Filter လုပ်မည်
-        db.agents = db.agents.filter(a => String(a.id) !== String(agentId));
-
-        if (db.agents.length === initialLength) {
+        if (result.rowCount === 0) {
             return res.status(404).json({ success: false, message: "Agent ID ရှာမတွေ့ပါ။" });
         }
-
-        // Database (JSON File) ထဲသို့ ချက်ချင်း အပြီးတိုင် ရေးသွင်းမည်
-        fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 
         return res.json({ success: true, message: `Agent ID (${agentId}) ကို အပြီးတိုင် ဖျက်ပြီးပါပြီ။` });
     } catch (error) {
         console.error("Delete Agent Error:", error);
         return res.status(500).json({ success: false, message: "Server Error: " + error.message });
     }
+});
+
+app.listen(PORT, () => {
+    console.log(`-----------------------------------------`);
+    console.log(`Server running on port ${PORT}`);
+    console.log(`-----------------------------------------`);
 });
