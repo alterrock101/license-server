@@ -162,31 +162,39 @@
     </div>
 
     <script>
-        // 💡 Global Scope & Window Scope နှစ်ခုလုံးမှာ တိုက်ရိုက် သတ်မှတ်ခြင်း
+        // 💡 Render Server URL
         window.BASE_URL = "https://armaths-license-server.onrender.com";
         const BASE_URL = "https://armaths-license-server.onrender.com";
 
         let currentAgent = null;
 
         async function agentLogin() {
-            const agentId = document.getElementById('loginAgentId').value;
-            const pin = document.getElementById('loginPin').value;
+            const agentIdInput = document.getElementById('loginAgentId');
+            const pinInput = document.getElementById('loginPin');
 
-            // agentLogin() အဆင်ပြေသွားသည့်နေရာတွင် ထည့်ရန်:
+            const agentId = agentIdInput ? agentIdInput.value.trim() : '';
+            const pin = pinInput ? pinInput.value.trim() : '';
+
+            if (!agentId || !pin) return alert("❌ Agent ID နှင့် PIN Code ဖြည့်ပါ");
+
             window.currentAgentId = agentId;
             window.currentPin = pin;
+            localStorage.setItem('agentId', agentId);
+            localStorage.setItem('pin', pin);
 
-            if (!agentId || !pin) return alert("Agent ID နှင့် PIN Code ဖြည့်ပါ");
+            const host = (typeof BASE_URL !== 'undefined' ? BASE_URL : (window.BASE_URL || "https://armaths-license-server.onrender.com"));
 
             try {
-                const res = await fetch('/api/agent/login', {
+                // 💡 BASE_URL ကို မှန်ကန်စွာ ထည့်သွင်းထားပါသည်
+                const res = await fetch(`${host}/api/agent/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ agentId, pin })
                 });
+
                 const data = await res.json();
 
-                if (data.success) {
+                if (res.ok && data.success) {
                     currentAgent = {
                         agentId,
                         pin,
@@ -194,9 +202,11 @@
                         quota_6m: data.agent.quota_6m || 0,
                         quota_1y: data.agent.quota_1y || 0
                     };
-                    document.getElementById('agentName').innerText = data.agent.username;
 
-                    // 💡 6 Months နှင့် 1 Year Balance များကို သီးသန့် ပြပေးမည်
+                    if (document.getElementById('agentName')) {
+                        document.getElementById('agentName').innerText = data.agent.username;
+                    }
+
                     if (document.getElementById('agentQuota6m')) {
                         document.getElementById('agentQuota6m').innerText = data.agent.quota_6m || 0;
                     }
@@ -206,39 +216,41 @@
 
                     document.getElementById('login-form').style.display = 'none';
                     document.getElementById('agent-dashboard').style.display = 'block';
-                    document.getElementById('result').style.display = 'none';
+                    if (document.getElementById('result')) document.getElementById('result').style.display = 'none';
                 } else {
-                    alert("❌ " + data.message);
+                    alert("❌ " + (data.message || "Login ဝင်၍ မရပါ"));
                 }
             } catch (err) {
-                alert("❌ Server နှင့် ချိတ်ဆက်၍ မရပါ။");
+                console.error("Login Error:", err);
+                alert("❌ Server သို့ ချိတ်ဆက်၍ မရပါ။ (Internet connection သို့မဟုတ် Server URL ကို စစ်ဆေးပါ)");
             }
         }
 
         function agentLogout() {
             currentAgent = null;
+            window.currentAgentId = null;
+            window.currentPin = null;
+            localStorage.removeItem('agentId');
+            localStorage.removeItem('pin');
+
             document.getElementById('login-form').style.display = 'block';
             document.getElementById('agent-dashboard').style.display = 'none';
-            document.getElementById('result').style.display = 'none';
+            if (document.getElementById('result')) document.getElementById('result').style.display = 'none';
         }
-
-
 
         async function generateKey() {
             const btn = document.querySelector("#agent-dashboard button[onclick='generateKey()']");
             const deviceIdInput = document.getElementById('deviceId');
 
-            // 💡 Agent ID နဲ့ PIN ကို Input အပြင် Global variable / Session ကပါ Safe fallback ယူမည်
             const agentIdInput = document.getElementById('loginAgentId');
             const pinInput = document.getElementById('loginPin');
 
-            const agentId = (agentIdInput ? agentIdInput.value : '') || window.currentAgentId || localStorage.getItem('agentId');
-            const pin = (pinInput ? pinInput.value : '') || window.currentPin || localStorage.getItem('pin');
+            const agentId = (agentIdInput ? agentIdInput.value.trim() : '') || window.currentAgentId || localStorage.getItem('agentId');
+            const pin = (pinInput ? pinInput.value.trim() : '') || window.currentPin || localStorage.getItem('pin');
 
             const deviceId = deviceIdInput ? deviceIdInput.value.trim() : '';
             const planType = document.getElementById('agentPlanType') ? document.getElementById('agentPlanType').value : '6months';
 
-            // 💡 Validation စစ်ဆေးခြင်း
             if (!agentId || !pin) {
                 alert("❌ Agent ID သို့မဟုတ် PIN မရှိပါ။ ကျေးဇူးပြု၍ ပြန်လည် Login ဝင်ပါ။");
                 return;
@@ -265,41 +277,40 @@
                     body: JSON.stringify({ agentId, pin, deviceId, planType })
                 });
 
-                // Response ကို text အဖြစ် အရင်ယူပြီး JSON parse လုပ်ခြင်း (Crash ကာကွယ်ရန်)
                 const textResponse = await res.text();
                 let data;
                 try {
                     data = JSON.parse(textResponse);
                 } catch (e) {
-                    throw new Error("Server မှ သုံးမရသော တုံ့ပြန်မှု ရရှိပါသည်: " + textResponse);
+                    throw new Error("Server Response မှားယွင်းနေပါသည်။ (" + textResponse.substring(0, 100) + ")");
                 }
 
                 const resultDiv = document.getElementById('result');
                 if (resultDiv) resultDiv.style.display = 'block';
 
                 if (res.ok && data.success) {
-                    const planText = planType === '1year' ? '1 Year Plan (၁ နှစ်)' : '6 Months Plan (၆ လ)';
+                    const planText = (planType === '1year' || planType === '1y') ? '1 Year Plan (၁ နှစ်)' : '6 Months Plan (၆ လ)';
 
                     if (resultDiv) {
                         resultDiv.innerHTML = `
-                    <div style="background:#e8f5e9; padding:15px; border-radius:8px; border:1px solid #4caf50; text-align:left;">
-                        <h4 style="color:#2e7d32; margin:0 0 10px 0;">✅ Key အောင်မြင်စွာ ထုတ်ပေးပြီးပါပြီ</h4>
-                        <p style="margin:4px 0;"><b>Plan သက်တမ်း:</b> ${planText}</p>
-                        <p style="margin:4px 0;"><b>Customer Device ID:</b> <code>${data.deviceId}</code></p>
-                        <p style="margin:6px 0;"><b>License Key:</b></p>
-                        <div style="display:flex; align-items:center; gap:10px; margin-top:5px;">
-                            <code style="font-size:16px; color:#d32f2f; font-weight:bold; background:#fff; padding:6px 10px; border-radius:4px; border:1px solid #ccc;">${data.licenseKey}</code>
-                            <button onclick="copyToClipboard('${data.licenseKey}')" style="background:#28a745; color:white; border:none; padding:7px 12px; border-radius:5px; cursor:pointer; font-size:13px;">
-                                📋 Copy Key
-                            </button>
+                        <div style="background:#e8f5e9; padding:15px; border-radius:8px; border:1px solid #4caf50; text-align:left;">
+                            <h4 style="color:#2e7d32; margin:0 0 10px 0;">✅ Key အောင်မြင်စွာ ထုတ်ပေးပြီးပါပြီ</h4>
+                            <p style="margin:4px 0;"><b>Plan သက်တမ်း:</b> ${planText}</p>
+                            <p style="margin:4px 0;"><b>Customer Device ID:</b> <code>${data.deviceId}</code></p>
+                            <p style="margin:6px 0;"><b>License Key:</b></p>
+                            <div style="display:flex; align-items:center; gap:10px; margin-top:5px;">
+                                <code style="font-size:16px; color:#d32f2f; font-weight:bold; background:#fff; padding:6px 10px; border-radius:4px; border:1px solid #ccc;">${data.licenseKey}</code>
+                                <button onclick="copyToClipboard('${data.licenseKey}')" style="background:#28a745; color:white; border:none; padding:7px 12px; border-radius:5px; cursor:pointer; font-size:13px;">
+                                    📋 Copy Key
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                `;
+                    `;
                     }
 
                     if (deviceIdInput) deviceIdInput.value = '';
 
-                    // Quota စာရင်း ပြန်လည် Update လုပ်ခြင်း
+                    // Balance ပြန်လည် update လုပ်ရန်
                     if (typeof agentLogin === 'function') agentLogin();
                 } else {
                     if (resultDiv) {
@@ -319,11 +330,10 @@
                         btn.style.opacity = "1";
                         btn.style.cursor = "pointer";
                     }
-                }, 2000);
+                }, 1000);
             }
         }
 
-        // 💡 License Key တစ်ခုတည်းကိုသာ Copy ယူပေးသည့် Function
         function copyToClipboard(key) {
             navigator.clipboard.writeText(key).then(() => {
                 alert("📋 Activation Key ကို Copy ကူးပြီးပါပြီ။");
