@@ -25,22 +25,28 @@ app.use(cors({
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Key Generator Function (AES-256-CBC)
-function generateLicenseKey(deviceId, expiryDays = 365) {
-    const secret = "MY_SUPER_SECRET_KEY_2026";
-    const expireTimestamp = Date.now() + (expiryDays * 24 * 60 * 60 * 1000);
-    const rawData = `${deviceId.trim().toUpperCase()}|${expireTimestamp}`;
+// 💡 APP နှင့် တူညီသော SHA-256 Secret Salt
+const APP_SECRET_SALT = "AR_MATHS_SECURE_SALT_2026_!";
 
-    const cipher = crypto.createCipheriv(
-        'aes-256-cbc',
-        crypto.scryptSync(secret, 'salt', 32),
-        Buffer.alloc(16, 0)
-    );
+// 💡 Key Generator Function (App လက်ခံသည့် SHA-256 Algorithm ဖြင့် ပြင်ဆင်ထားသည်)
+function generateLicenseKey(deviceId, planType) {
+    const devId = deviceId.trim().toUpperCase();
 
-    let encrypted = cipher.update(rawData, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
+    // Plan အလိုက် Expiry Date တွက်ချက်ခြင်း
+    const d = new Date();
+    if (planType === '1year' || planType === '1y') {
+        d.setFullYear(d.getFullYear() + 1);
+    } else {
+        d.setMonth(d.getMonth() + 6);
+    }
+    const expiry = d.toISOString().split('T')[0]; // "YYYY-MM-DD"
 
-    return encrypted.toUpperCase();
+    // SHA-256 Hash တွက်ချက်ခြင်း
+    const payload = devId + "|" + expiry;
+    const fullHash = crypto.createHash('sha256').update(payload + APP_SECRET_SALT).digest('hex');
+    const signature = fullHash.substring(0, 16).toUpperCase();
+
+    return `${expiry}-${signature}`;
 }
 
 // ---------------- API ROUTES (Supabase PostgreSQL Integrated) ----------------
@@ -82,7 +88,7 @@ app.post('/api/agent/login', async (req, res) => {
 // 2. Agent Generate License Key API
 app.post('/api/agent/generate-key', async (req, res) => {
     try {
-        const { agentId, pin, deviceId, planType } = req.body;
+        const { agentId, pin, deviceId, planType, customKey } = req.body;
 
         if (!agentId || !pin || !deviceId) {
             return res.status(400).json({ success: false, message: "အချက်အလက်များ မပြည့်စုံပါ။ (Agent ID, PIN, Device ID လိုအပ်ပါသည်)" });
@@ -111,9 +117,9 @@ app.post('/api/agent/generate-key', async (req, res) => {
             });
         }
 
-        // License Key ထုတ်ပေးခြင်း
-        const durationDays = is1Year ? 365 : 180;
-        const licenseKey = generateLicenseKey(deviceId, durationDays);
+        // 💡 License Key ထုတ်ယူခြင်း (Client က customKey ပို့လျှင် ၎င်းကိုသုံးမည်၊ မဟုတ်လျှင် SHA-256 ဖြင့် ထုတ်မည်)
+        const cleanDeviceId = deviceId.trim().toUpperCase();
+        const licenseKey = customKey || generateLicenseKey(cleanDeviceId, planType);
 
         // Quota ၁ ခု လျှော့မည်
         if (is1Year) {
@@ -122,11 +128,11 @@ app.post('/api/agent/generate-key', async (req, res) => {
             await pool.query('UPDATE agents SET quota_6m = GREATEST(0, quota_6m - 1) WHERE id = $1', [agentId]);
         }
 
-        // Supabase keys table ထဲသို့ သိမ်းမည် (Error တက်လျှင်လည်း Key ကို Return ပြန်ပေးမည်)
+        // Supabase keys table ထဲသို့ သိမ်းမည်
         try {
             await pool.query(
                 'INSERT INTO keys (agent_id, device_id, plan_type, license_key, created_at) VALUES ($1, $2, $3, $4, NOW())',
-                [agentId, deviceId, is1Year ? '1year' : '6months', licenseKey]
+                [agentId, cleanDeviceId, is1Year ? '1year' : '6months', licenseKey]
             );
         } catch (dbErr) {
             console.error("Keys Table Insert Error (Non-fatal):", dbErr.message);
@@ -137,7 +143,7 @@ app.post('/api/agent/generate-key', async (req, res) => {
         return res.json({
             success: true,
             licenseKey: licenseKey,
-            deviceId: deviceId,
+            deviceId: cleanDeviceId,
             remainingQuota: remainingQuota,
             message: `${is1Year ? '1 Year' : '6 Months'} Plan License Key အောင်မြင်စွာ ထုတ်ပေးပြီးပါပြီ။`
         });
