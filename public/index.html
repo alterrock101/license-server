@@ -243,7 +243,7 @@
                 if (document.getElementById('result')) document.getElementById('result').style.display = 'none';
             }
 
-            // 💡 App က အသုံးပြုသော Secret Salt အတူတူ ထားရှိခြင်း
+            // 💡 App က အသုံးပြုသော Secret Salt
             const APP_SECRET_SALT = "AR_MATHS_SECURE_SALT_2026_!";
 
             async function sha256(message) {
@@ -285,7 +285,7 @@
                 const host = (typeof BASE_URL !== 'undefined' ? BASE_URL : (window.BASE_URL || "https://armaths-license-server.onrender.com"));
 
                 try {
-                    // 💡 ၁။ Plan အလိုက် Expiry Date တွက်ချက်ခြင်း (၆ လ သို့မဟုတ် ၁ နှစ်)
+                    // 💡 ၁။ Plan အလိုက် Expiry Date တွက်ချက်ခြင်း
                     const d = new Date();
                     if (planType === '1year' || planType === '1y') {
                         d.setFullYear(d.getFullYear() + 1);
@@ -299,8 +299,8 @@
                     const fullHash = await sha256(payload + APP_SECRET_SALT);
                     const signature = fullHash.substring(0, 16).toUpperCase();
 
-                    // 🎯 တကယ့် Offline App က လက်ခံမည့် Activation Key စစ်စစ်
-                    const generatedLicenseKey = `${expiry}-${signature}`;
+                    // Offline App Activation Key
+                    const clientGeneratedKey = `${expiry}-${signature}`;
 
                     // 💡 ၃။ Server သို့ Quota နှုတ်ရန်နှင့် Record မှတ်ရန် ပို့ခြင်း
                     const res = await fetch(`${host}/api/agent/generate-key`, {
@@ -311,7 +311,7 @@
                             pin,
                             deviceId,
                             planType,
-                            customKey: generatedLicenseKey // Server သို့ အမှန်ထုတ်လိုက်သော Key ပါ ပို့ပေးခြင်း
+                            customKey: clientGeneratedKey
                         })
                     });
 
@@ -319,6 +319,8 @@
                     const resultDiv = document.getElementById('result');
 
                     if (res.ok && data.success) {
+                        // Server က ပြန်လာသော Key သို့မဟုတ် Local က ထုတ်လိုက်သော Key ကို သုံးမည်
+                        const finalKey = data.licenseKey || data.key || clientGeneratedKey;
                         const planText = (planType === '1year' || planType === '1y') ? '1 Year Plan (၁ နှစ်)' : '6 Months Plan (၆ လ)';
 
                         if (deviceIdInput) deviceIdInput.value = '';
@@ -326,19 +328,19 @@
                         if (resultDiv) {
                             resultDiv.style.display = 'block';
                             resultDiv.innerHTML = `
-                    <div style="background:#e8f5e9; padding:15px; border-radius:8px; border:2px solid #2e7d32; text-align:left; margin-top:15px;">
-                        <h4 style="color:#2e7d32; margin:0 0 10px 0;">✅ Key အောင်မြင်စွာ ထုတ်ပေးပြီးပါပြီ</h4>
-                        <p style="margin:4px 0;"><b>Plan သက်တမ်း:</b> ${planText} (${expiry} အထိ)</p>
-                        <p style="margin:4px 0;"><b>Customer Device ID:</b> <code style="background:#fff; padding:2px 6px; border-radius:4px; border:1px solid #ccc;">${deviceId}</code></p>
-                        <p style="margin:8px 0 4px 0;"><b>License Key:</b></p>
-                        <div style="display:flex; align-items:center; gap:10px; margin-top:5px;">
-                            <input type="text" id="generatedKeyText" readonly value="${generatedLicenseKey}" style="font-size:15px; color:#d32f2f; font-weight:bold; background:#fff; padding:8px 12px; border-radius:4px; border:1px solid #ccc; flex-grow:1;" />
-                            <button type="button" onclick="copyKeyOnly('${generatedLicenseKey}')" style="background:#28a745; color:white; border:none; padding:8px 14px; border-radius:5px; cursor:pointer; font-size:13px; flex-shrink:0; font-weight:bold;">
-                                📋 Copy Key
-                            </button>
+                        <div style="background:#e8f5e9; padding:15px; border-radius:8px; border:2px solid #2e7d32; text-align:left; margin-top:15px;">
+                            <h4 style="color:#2e7d32; margin:0 0 10px 0;">✅ Key အောင်မြင်စွာ ထုတ်ပေးပြီးပါပြီ</h4>
+                            <p style="margin:4px 0;"><b>Plan သက်တမ်း:</b> ${planText} (${expiry} အထိ)</p>
+                            <p style="margin:4px 0;"><b>Customer Device ID:</b> <code style="background:#fff; padding:2px 6px; border-radius:4px; border:1px solid #ccc;">${deviceId}</code></p>
+                            <p style="margin:8px 0 4px 0;"><b>License Key:</b></p>
+                            <div style="display:flex; align-items:center; gap:10px; margin-top:5px;">
+                                <input type="text" id="generatedKeyText" readonly value="${finalKey}" style="font-size:15px; color:#d32f2f; font-weight:bold; background:#fff; padding:8px 12px; border-radius:4px; border:1px solid #ccc; flex-grow:1;" />
+                                <button type="button" onclick="copyKeyOnly('${finalKey}')" style="background:#28a745; color:white; border:none; padding:8px 14px; border-radius:5px; cursor:pointer; font-size:13px; flex-shrink:0; font-weight:bold;">
+                                    📋 Copy Key
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                `;
+                    `;
                         }
 
                         if (currentAgent) {
@@ -369,14 +371,25 @@
                 return false;
             }
 
-            // Copy လုပ်ရန် Helper Function
-            function copyGeneratedKey() {
-                const copyText = document.getElementById("keyOutput");
-                if (!copyText) return;
-                copyText.select();
-                copyText.setSelectionRange(0, 99999);
-                navigator.clipboard.writeText(copyText.value);
-                alert("📋 License Key ကို Copy ကူးပြီးပါပြီ - " + copyText.value);
+            // 💡 အောက်ပါ Copy Function လေး မရှိခဲ့လို့ Error တက်ပြီး Key Box မပေါ်တာဖြစ်ပါတယ်
+            function copyKeyOnly(keyText) {
+                if (!keyText) {
+                    const input = document.getElementById("generatedKeyText");
+                    if (input) keyText = input.value;
+                }
+                if (keyText) {
+                    navigator.clipboard.writeText(keyText).then(() => {
+                        alert("📋 License Key ကို Copy ကူးပြီးပါပြီ - " + keyText);
+                    }).catch(err => {
+                        // Fallback for older browsers
+                        const input = document.getElementById("generatedKeyText");
+                        if (input) {
+                            input.select();
+                            document.execCommand("copy");
+                            alert("📋 License Key ကို Copy ကူးပြီးပါပြီ");
+                        }
+                    });
+                }
             }
         </script>
 </body>
