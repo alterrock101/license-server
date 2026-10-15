@@ -8,12 +8,12 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // 💡 Supabase Connection String
-// 💡 Supabase Connection String
-const DATABASE_URL = process.env.DATABASE_URL || "postgres://postgres:Ar%401651973kotoe@db.vxfgicxykmxzgelagupj.supabase.co:5432/postgres";
+const DATABASE_URL = process.env.DATABASE_URL || "postgresql://postgres.vxfgicxykmxzgelagupj:Ar%401651973kotoe@aws-0-ap-south-1.pooler.supabase.com:5432/postgres";
 
 const pool = new Pool({
     connectionString: DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 10000
 });
 
 // CORS Config
