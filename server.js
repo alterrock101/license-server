@@ -8,7 +8,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // 💡 Supabase Connection String
-const DATABASE_URL = process.env.DATABASE_URL || "postgresql://postgres.vxfgicxykmxzgelagupj:Ar%401651973kotoe@aws-0-ap-south-1.pooler.supabase.com:6543/postgres";
+// ✅ အသစ်ပြင်ရမည့် Direct Connection String (Port 5432)
+const DATABASE_URL = process.env.DATABASE_URL || "postgresql://postgres.vxfgicxykmxzgelagupj:Ar%401651973kotoe@db.vxfgicxykmxzgelagupj.supabase.co:5432/postgres";
 
 const pool = new Pool({
     connectionString: DATABASE_URL,
